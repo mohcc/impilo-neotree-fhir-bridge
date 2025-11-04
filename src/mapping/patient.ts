@@ -51,14 +51,21 @@ export class PatientMapper implements Mapper<NeonatalCareRow, PatientResource> {
         }
       : undefined;
 
+    // Build name object - ensure both family and given are present (not undefined)
+    // OpenCR CRUX list view requires properly populated name fields
+    const nameObj: { family?: string; given?: string[] } = {};
+    if (row.lastname && String(row.lastname).trim()) {
+      nameObj.family = String(row.lastname).trim();
+    }
+    if (given.length > 0) {
+      nameObj.given = given;
+    }
+
     return {
       resourceType: "Patient",
       ...(meta ? { meta } : {}),
       identifier: identifiers.length > 0 ? identifiers : undefined,
-      name: [{
-        family: row.lastname ? String(row.lastname) : undefined,
-        given: given.length > 0 ? given : undefined
-      }],
+      name: [nameObj],
       gender,
       birthDate,
       managingOrganization,
