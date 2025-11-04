@@ -91,5 +91,68 @@ export class OpenHimClient {
     const bundle = { resourceType: "Bundle", type: "transaction", entry: entries };
     return this.postJson(path, bundle);
   }
+
+  async get(path: string, retries = 3): Promise<HttpResult> {
+    const url = new URL(`${this.baseUrl}${path}`);
+    const isHttps = url.protocol === "https:";
+    const httpModule = isHttps ? https : http;
+    
+    let attempt = 0;
+    let delayMs = 250;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      try {
+        const result = await new Promise<HttpResult>((resolve, reject) => {
+          const headers: Record<string, string> = {
+            accept: "application/fhir+json",
+          };
+          if (this.authHeader) headers.authorization = this.authHeader;
+          if (this.config.openhim.clientId) headers["x-openhim-clientid"] = this.config.openhim.clientId;
+
+          const options = {
+            hostname: url.hostname,
+            port: url.port || (isHttps ? 443 : 80),
+            path: url.pathname + url.search,
+            method: "GET",
+            headers,
+          };
+
+          const req = httpModule.request(options, (res) => {
+            let data = "";
+            res.on("data", (chunk) => { data += chunk; });
+            res.on("end", () => {
+              let parsedBody: unknown = undefined;
+              try { parsedBody = data ? JSON.parse(data) : undefined; } catch { parsedBody = data; }
+              
+              if (res.statusCode && res.statusCode >= 400) {
+                const bodyPreview = typeof parsedBody === 'string' 
+                  ? parsedBody.substring(0, 500) 
+                  : JSON.stringify(parsedBody).substring(0, 500);
+                console.error(`[OpenHIM] HTTP ${res.statusCode} - Response: ${bodyPreview}`);
+              }
+              
+              if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+                resolve({ status: res.statusCode, body: parsedBody });
+              } else if (res.statusCode && attempt < retries) {
+                reject(new Error(`HTTP ${res.statusCode}`));
+              } else {
+                resolve({ status: res.statusCode || 500, body: parsedBody });
+              }
+            });
+          });
+
+          req.on("error", reject);
+          req.end();
+        });
+
+        return result;
+      } catch (err) {
+        attempt += 1;
+        if (attempt > retries) throw err;
+        await new Promise((r) => setTimeout(r, delayMs));
+        delayMs *= 2;
+      }
+    }
+  }
 }
 

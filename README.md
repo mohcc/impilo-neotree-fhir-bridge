@@ -626,9 +626,42 @@ MIT License - See LICENSE file for details
 
 ---
 
+## 🔍 Search API
+
+The bridge provides REST APIs to search OpenCR for existing patients before creating duplicates.
+
+### Quick Example
+
+```bash
+# Check if patient exists by NEOTREE-ID
+curl "http://localhost:3001/api/patients/search/by-identifier?identifier=00-0A-34-2025-N-01036"
+
+# Search by demographics
+curl "http://localhost:3001/api/patients/search/by-demographics?given=John&family=Doe&birthDate=1990-01-01"
+```
+
+### Available Endpoints
+
+| Endpoint | Description | Use Case |
+|----------|-------------|----------|
+| `GET /api/patients/search/by-identifier` | Search by NEOTREE-ID or Patient ID | Exact match check |
+| `GET /api/patients/search/by-demographics` | Search by name, DOB, gender | Pre-registration check |
+| `GET /api/patients/search/fuzzy` | Fuzzy name matching | Handle typos/variations |
+| `GET /api/patients/search` | Flexible combined search | Any combination |
+
+**Response includes**:
+- `duplicateRisk`: "none", "low", "medium", "high"
+- `confidence`: Match confidence level
+- `patients`: Simplified patient data
+- `message`: Actionable guidance
+
+See [SEARCH_API_GUIDE.md](SEARCH_API_GUIDE.md) for complete API documentation.
+
+---
+
 ## 🚧 Roadmap
 
-- [ ] Pull/search functionality from OpenCR
+- [x] Pull/search functionality from OpenCR ✅
 - [ ] Webhook mode for real-time sync
 - [ ] Dashboard for monitoring
 - [ ] Automated tests (unit + integration)

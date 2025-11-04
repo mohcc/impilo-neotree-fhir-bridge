@@ -4,14 +4,14 @@ import { createPool } from "./db/mysql.js";
 import { startOpencrPushPipeline } from "./push/pipeline.js";
 
 async function main(): Promise<void> {
+  const config = loadConfig();
   const port = Number(process.env.PORT || 3000);
-  const app = createServer();
+  const app = createServer(config);
   app.listen(port, () => {
     // eslint-disable-next-line no-console
     console.log(`Service listening on port ${port}`);
   });
 
-  const config = loadConfig();
   const pool = createPool(config);
   
   // Test MySQL connection
