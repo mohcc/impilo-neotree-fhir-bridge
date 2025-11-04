@@ -1,0 +1,133 @@
+{
+  "__comments": {
+    "path": "FHIR path syntax: https://www.hl7.org/fhir/fhirpath.html",
+    "matchingType": "deterministic (exact) or probabilistic (fuzzy)",
+    "threshold": {
+      "levenshtein": "Lower number = closer match (0 = exact, max = 2)",
+      "jaro-winkler": "0-1 scale (0 = no match, 1 = exact match)"
+    },
+    "nullHandling": {
+      "description": "How to handle missing fields: conservative (safer), moderate (balanced), greedy (more matches)",
+      "values": "conservative, moderate, or greedy"
+    },
+    "scoring": {
+      "description": "Field weights for weighted scoring: higher = more important",
+      "autoMatchThreshold": "Score ≥ this = auto-link (high confidence)",
+      "potentialMatchThreshold": "Score between this and autoMatchThreshold = manual review"
+    }
+  },
+  "rules": [
+    {
+      "matchingType": "deterministic",
+      "description": "Primary matching rule - uses exact matching for identifiers and critical fields",
+      "fields": {
+        "neotreeId": {
+          "algorithm": "exact",
+          "fhirpath": "identifier.where(system='urn:neotree:impilo-id').value",
+          "weight": 10,
+          "null_handling": "conservative",
+          "null_handling_both": "conservative",
+          "espath": "identifier.neotreeId",
+          "description": "NEOTREE-IMPILO-ID - highest priority identifier"
+        },
+        "patientId": {
+          "algorithm": "exact",
+          "fhirpath": "identifier.where(system='urn:impilo:uid').value",
+          "weight": 8,
+          "null_handling": "conservative",
+          "null_handling_both": "conservative",
+          "espath": "identifier.patientId",
+          "description": "Patient ID - secondary identifier"
+        },
+        "birthDate": {
+          "algorithm": "exact",
+          "fhirpath": "birthDate",
+          "weight": 7,
+          "null_handling": "conservative",
+          "null_handling_both": "conservative",
+          "espath": "birthDate",
+          "description": "Date of birth - critical for matching"
+        },
+        "family": {
+          "algorithm": "exact",
+          "fhirpath": "name.last().family",
+          "weight": 6,
+          "null_handling": "moderate",
+          "null_handling_both": "moderate",
+          "espath": "family",
+          "description": "Family name - exact match for deterministic rule"
+        },
+        "given": {
+          "algorithm": "exact",
+          "fhirpath": "name.last().given",
+          "weight": 5,
+          "null_handling": "moderate",
+          "null_handling_both": "moderate",
+          "espath": "given",
+          "description": "Given name - exact match for deterministic rule"
+        },
+        "gender": {
+          "algorithm": "exact",
+          "fhirpath": "gender",
+          "weight": 3,
+          "null_handling": "moderate",
+          "null_handling_both": "greedy",
+          "espath": "gender",
+          "description": "Gender - lower weight, optional"
+        }
+      },
+      "autoMatchThreshold": 8,
+      "potentialMatchThreshold": 5,
+      "description": "Auto-link if score ≥ 8, manual review if 5-7, no match if < 5"
+    },
+    {
+      "matchingType": "probabilistic",
+      "description": "Fuzzy matching rule - handles name variations and typos",
+      "fields": {
+        "family": {
+          "algorithm": "jaro-winkler",
+          "threshold": 0.85,
+          "fhirpath": "name.last().family",
+          "weight": 6,
+          "null_handling": "moderate",
+          "null_handling_both": "moderate",
+          "espath": "family",
+          "description": "Family name - fuzzy match (handles typos like 'Smith' vs 'Smyth')"
+        },
+        "given": {
+          "algorithm": "levenshtein",
+          "threshold": 2,
+          "fhirpath": "name.last().given",
+          "weight": 5,
+          "null_handling": "moderate",
+          "null_handling_both": "moderate",
+          "espath": "given",
+          "description": "Given name - fuzzy match (handles variations like 'John' vs 'Jon')"
+        },
+        "birthDate": {
+          "algorithm": "exact",
+          "fhirpath": "birthDate",
+          "weight": 7,
+          "null_handling": "conservative",
+          "null_handling_both": "conservative",
+          "espath": "birthDate",
+          "description": "Birth date - still exact match even in fuzzy rule"
+        },
+        "gender": {
+          "algorithm": "exact",
+          "fhirpath": "gender",
+          "weight": 3,
+          "null_handling": "greedy",
+          "null_handling_both": "greedy",
+          "espath": "gender",
+          "description": "Gender - optional, lower weight"
+        }
+      },
+      "autoMatchThreshold": 8,
+      "potentialMatchThreshold": 5,
+      "description": "Fuzzy matching for cases where exact match fails but similarity is high"
+    }
+  ]
+}
+
+
