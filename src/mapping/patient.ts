@@ -53,7 +53,10 @@ export class PatientMapper implements Mapper<NeonatalCareRow, PatientResource> {
 
     // Build name object - ensure both family and given are present (not undefined)
     // OpenCR CRUX list view requires properly populated name fields
-    const nameObj: { family?: string; given?: string[] } = {};
+    // Include "use": "official" to match standard FHIR conventions
+    const nameObj: { use?: string; family?: string; given?: string[] } = {
+      use: "official"
+    };
     if (row.lastname && String(row.lastname).trim()) {
       nameObj.family = String(row.lastname).trim();
     }
