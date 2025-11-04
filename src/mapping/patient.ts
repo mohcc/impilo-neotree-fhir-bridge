@@ -40,12 +40,14 @@ export class PatientMapper implements Mapper<NeonatalCareRow, PatientResource> {
       : undefined;
 
     // Build meta with client ID tag (required by OpenCR)
-    const meta = this.clientId
+    // Use facility_id as clientid (source) if available, otherwise fall back to configured clientId
+    const clientIdToUse = row.facility_id || this.clientId;
+    const meta = clientIdToUse
       ? {
           tag: [
             {
               system: "http://openclientregistry.org/fhir/clientid",
-              code: this.clientId,
+              code: clientIdToUse,
             },
           ],
         }
