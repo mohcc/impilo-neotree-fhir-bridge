@@ -151,6 +151,13 @@ export class PatientSearchController {
     let message: string | undefined;
     if (!found) {
       message = "No matching patients found. Safe to create new record.";
+    } else if (searchType === "identifier" && count > 0) {
+      // Exact identifier match - patient already exists
+      if (count === 1 && patients[0]) {
+        message = `Patient already exists - DO NOT create duplicate. Use existing ID: ${patients[0].id}`;
+      } else {
+        message = `Found ${count} patients with this identifier - DO NOT create duplicate. Review existing records.`;
+      }
     } else if (duplicateRisk === "high") {
       message = `Found ${count} matching patient(s). High risk of duplicate - review before creating.`;
     } else if (duplicateRisk === "medium") {
