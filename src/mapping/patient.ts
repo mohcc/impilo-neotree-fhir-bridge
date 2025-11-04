@@ -35,19 +35,20 @@ export class PatientMapper implements Mapper<NeonatalCareRow, PatientResource> {
     }
 
     // Build managing organization reference
-    const managingOrganization = row.facility_id
-      ? { reference: `Organization/${row.facility_id}` }
+    // Use configured clientId (from FACILITY_ID env var) if available, otherwise use row.facility_id
+    const facilityId = this.clientId || row.facility_id;
+    const managingOrganization = facilityId
+      ? { reference: `Organization/${facilityId}` }
       : undefined;
 
     // Build meta with client ID tag (required by OpenCR)
-    // Use facility_id as clientid (source) if available, otherwise fall back to configured clientId
-    const clientIdToUse = row.facility_id || this.clientId;
-    const meta = clientIdToUse
+    // This determines the "source" displayed in OpenCR CRUX
+    const meta = this.clientId
       ? {
           tag: [
             {
               system: "http://openclientregistry.org/fhir/clientid",
-              code: clientIdToUse,
+              code: this.clientId,
             },
           ],
         }

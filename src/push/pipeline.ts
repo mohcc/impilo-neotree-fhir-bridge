@@ -11,9 +11,9 @@ import { AuditLogger, RegistrationResult } from "../audit/audit-logger.js";
 
 export async function startOpencrPushPipeline(pool: Pool, config: AppConfig): Promise<void> {
   await ensureWatermarkTable(pool, config.ops.watermarkTable);
-  // Use SOURCE_ID as client ID for OpenCR (or get from OpenHIM client config if available)
+  // Use FACILITY_ID from config if set, otherwise fall back to SOURCE_ID
   // OpenCR requires a registered client ID - check OpenCR client registry for valid IDs
-  const clientId = config.sourceId || "test";
+  const clientId = config.facilityId || config.sourceId || "test";
   const mapper = new PatientMapper(clientId);
   const client = new OpenHimClient(config);
   const validator = new PatientValidator();

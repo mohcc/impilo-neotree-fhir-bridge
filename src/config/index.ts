@@ -6,6 +6,8 @@ dotenv.config();
 const envSchema = z.object({
   PORT: z.string().optional(),
   SOURCE_ID: z.string().default("opencr"),
+  FACILITY_ID: z.string().optional(),
+  FACILITY_NAME: z.string().optional(),
 
   MYSQL_HOST: z.string().optional(),
   MYSQL_PORT: z.string().optional(),
@@ -30,6 +32,8 @@ const envSchema = z.object({
 export type AppConfig = {
   port: number;
   sourceId: string;
+  facilityId?: string;
+  facilityName?: string;
   mysql: {
     host: string;
     port: number;
@@ -72,6 +76,8 @@ export function loadConfig(): AppConfig {
   return {
     port,
     sourceId: parsed.SOURCE_ID,
+    facilityId: parsed.FACILITY_ID,
+    facilityName: parsed.FACILITY_NAME,
     mysql: {
       host: parsed.MYSQL_HOST ?? "localhost",
       port: mysqlPort,
