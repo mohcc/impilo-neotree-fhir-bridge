@@ -444,6 +444,28 @@ docker run -d \
   impilo-neotree-bridge
 ```
 
+### Docker Hub Build & Push
+
+Use the provided scripts to build and publish images to Docker Hub.
+
+```bash
+# Build only (tags: latest, <package.json version>, <git sha>)
+./scripts/docker-build.sh latest
+
+# Build and push (requires Docker Hub login or env credentials)
+# Option 1: already logged in (`docker login`)
+./scripts/docker-build-push.sh latest
+
+# Option 2: provide credentials via env
+DOCKERHUB_USERNAME=youruser DOCKERHUB_TOKEN=yourtoken \
+  ./scripts/docker-build-push.sh v0.1.0
+```
+
+Environment variables:
+- `DOCKERHUB_REPO` (default: `mohcc/impilo-neotree-fhir-bridge`)
+- `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN` (optional for non-interactive login)
+- `BUILD_ARGS` (optional: forwarded to `docker build`)
+
 ### Production Checklist
 
 - [ ] Set all required environment variables
