@@ -710,3 +710,57 @@ See [SEARCH_API_GUIDE.md](SEARCH_API_GUIDE.md) for complete API documentation.
 **Version**: 0.1.0  
 **Last Updated**: November 2025
 
+
+### Run Image from Docker Hub (Test Locally)
+
+Create a minimal env file (adjust credentials/endpoints):
+
+```bash
+cat > /tmp/neotree.env << 'EOF'
+PORT=3001
+SOURCE_ID=neotree-bridge
+FACILITY_ID=ZW000A42
+FACILITY_NAME=Western Triangle Primary Care Clinic
+
+# Host MySQL (macOS/Windows: host.docker.internal)
+MYSQL_HOST=host.docker.internal
+MYSQL_PORT=3307
+MYSQL_USER=root
+MYSQL_PASSWORD=
+MYSQL_DATABASE=consultation
+
+# OpenHIM (example remote)
+OPENHIM_BASE_URL=http://197.221.242.150:10343
+OPENHIM_USERNAME=Impilo-Neotree
+OPENHIM_PASSWORD=Password@1
+OPENHIM_CHANNEL_PATH=/CR/fhir
+
+# Ops
+PUSH_BATCH_SIZE=10
+PUSH_CONCURRENCY=2
+MYSQL_POLL_INTERVAL_MS=10000
+MYSQL_WATERMARK_TABLE=_watermarks
+PULL_MODE=poll
+EOF
+```
+
+Run the container (use 3002 on host in case 3001 is busy):
+
+```bash
+# If a previous test container exists
+docker rm -f neotree-bridge-test 2>/dev/null || true
+
+# Start
+docker run -d \
+  --name neotree-bridge-test \
+  --env-file /tmp/neotree.env \
+  -p 3002:3001 \
+  mohcc/impilo-neotree-fhir-bridge:latest
+
+# Health check
+curl http://localhost:3002/health
+
+# View logs
+docker logs --tail 50 neotree-bridge-test
+```
+
