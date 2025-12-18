@@ -152,9 +152,9 @@ export async function startOpencrPushPipeline(pool: Pool, config: AppConfig): Pr
       for (const row of rows) {
         const patient = mapper.map(row);
         
-        // Log if NEOTREE-IMPILO-ID is included
-        if (row.neotree_id) {
-          logger.debug({ neotree_id: row.neotree_id, patient_id: row.patient_id }, "Processing record with NEOTREE-IMPILO-ID");
+        // Log if IMPILO-NEOTREE-ID is included
+        if (row.impilo_neotree_id) {
+          logger.debug({ impilo_neotree_id: row.impilo_neotree_id, patient_id: row.patient_id }, "Processing record with IMPILO-NEOTREE-ID");
         }
         
         // Sanitize patient data

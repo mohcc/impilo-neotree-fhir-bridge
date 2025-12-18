@@ -25,3 +25,37 @@ export interface Mapper<TInput extends RowObject, TOutput extends FhirResource> 
   map(input: TInput): TOutput;
 }
 
+export interface ObservationResource extends FhirResource {
+  resourceType: "Observation";
+  id?: string;
+  status: "registered" | "preliminary" | "final" | "amended" | "corrected" | "cancelled" | "entered-in-error" | "unknown";
+  category?: Array<{
+    coding?: Array<{ system?: string; code?: string; display?: string }>;
+  }>;
+  code: {
+    coding?: Array<{ system?: string; code?: string; display?: string }>;
+  };
+  subject: {
+    reference?: string;
+  };
+  effectiveDateTime?: string; // ISO 8601 datetime
+  valueInteger?: number;
+  valueString?: string;
+  valueBoolean?: boolean;
+  valueDateTime?: string;
+  valueDate?: string;
+  component?: Array<{
+    code?: { coding?: Array<{ code?: string; display?: string }> };
+    valueString?: string;
+    valueInteger?: number;
+  }>;
+  extension?: Array<{
+    url: string;
+    valueString?: string;
+    valueReference?: { reference?: string };
+  }>;
+  meta?: {
+    tag?: Array<{ system?: string; code?: string }>;
+  };
+}
+

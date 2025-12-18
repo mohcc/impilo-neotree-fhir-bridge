@@ -75,7 +75,7 @@ export async function fetchChangedRows(
 export interface NeonatalCareWithDemographics extends RowDataPacket {
   neonatal_care_id: string;
   patient_id: string;
-  neotree_id: string | null;
+  impilo_neotree_id: string | null; // Changed from neotree_id
   date_time_admission: Date | string;
   facility_id: string | null;
   person_id: string;
@@ -98,7 +98,7 @@ export async function fetchNeonatalCareWithDemographics(
     SELECT 
       nc.neonatal_care_id,
       nc.patient_id,
-      nc.neotree_id,
+      nc.impilo_neotree_id,
       DATE_FORMAT(nc.date_time_admission, '%Y-%m-%d %H:%i:%s') as date_time_admission,
       p.facility_id,
       p.person_id,
@@ -117,6 +117,66 @@ export async function fetchNeonatalCareWithDemographics(
   if (watermarkExclusive) params.push(watermarkExclusive);
   params.push(batchSize);
   const [rows] = await pool.query<NeonatalCareWithDemographics[]>(sql, params);
+  return rows;
+}
+
+export interface NeonatalQuestionRow extends RowDataPacket {
+  id: string;
+  reference_id: string | null;
+  category: string;
+  category_id: number | null;
+  script_id: string | null;
+  screen_id: string | null;
+  type: string;
+  data_key: string;
+  neonatal_care_id: string;
+  patient_id: string;
+  data: string; // JSON string
+  display_key: string | null;
+  display_value: string | null;
+  display_order: number | null;
+  date_time_admission: Date | string | null;
+}
+
+export async function fetchNeonatalQuestions(
+  pool: Pool,
+  watermarkExclusive: string | null, // Last processed ID
+  batchSize: number
+): Promise<NeonatalQuestionRow[]> {
+  const where = watermarkExclusive
+    ? "WHERE nq.id > ?"
+    : "";
+  
+  const sql = `
+    SELECT 
+      nq.id,
+      nq.reference_id,
+      nq.category,
+      nq.category_id,
+      nq.script_id,
+      nq.screen_id,
+      nq.type,
+      nq.data_key,
+      nq.neonatal_care_id,
+      nq.patient_id,
+      nq.data,
+      nq.display_key,
+      nq.display_value,
+      nq.display_order,
+      DATE_FORMAT(nc.date_time_admission, '%Y-%m-%d %H:%i:%s') as date_time_admission
+    FROM \`consultation\`.\`neonatal_question\` nq
+    INNER JOIN \`consultation\`.\`neonatal_care\` nc 
+      ON nq.neonatal_care_id = nc.neonatal_care_id
+    ${where}
+    ORDER BY nq.id
+    LIMIT ?
+  `;
+  
+  const params: Array<string | number> = [];
+  if (watermarkExclusive) params.push(watermarkExclusive);
+  params.push(batchSize);
+  
+  const [rows] = await pool.query<NeonatalQuestionRow[]>(sql, params);
   return rows;
 }
 

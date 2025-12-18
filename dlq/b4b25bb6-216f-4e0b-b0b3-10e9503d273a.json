@@ -1,0 +1,53 @@
+{
+  "reason": {
+    "message": "Validation failed: Invalid NEOTREE-IMPILO-ID format: CDK2-7361. Expected format: PP-DD-SS-YYYY-P-XXXXX (e.g., 00-0A-34-2025-N-01031)",
+    "stack": "Error: Validation failed: Invalid NEOTREE-IMPILO-ID format: CDK2-7361. Expected format: PP-DD-SS-YYYY-P-XXXXX (e.g., 00-0A-34-2025-N-01031)\n    at pollAndProcess (file:///Users/tawandawashaya/Documents/neotree-opencr/dist/push/pipeline.js:131:176)\n    at processTicksAndRejections (node:internal/process/task_queues:96:5)"
+  },
+  "payload": {
+    "path": "/CR/fhir",
+    "entries": [
+      {
+        "request": {
+          "method": "POST",
+          "url": "Patient"
+        },
+        "resource": {
+          "resourceType": "Patient",
+          "meta": {
+            "tag": [
+              {
+                "system": "http://openclientregistry.org/fhir/clientid",
+                "code": "ZW000A42"
+              }
+            ]
+          },
+          "identifier": [
+            {
+              "system": "urn:neotree:impilo-id",
+              "value": "CDK2-7361"
+            },
+            {
+              "system": "urn:impilo:uid",
+              "value": "8ded5425-2b7e-47fc-974d-6a860dade244"
+            }
+          ],
+          "name": [
+            {
+              "use": "official",
+              "family": "Ncube",
+              "given": [
+                "Tsungie"
+              ]
+            }
+          ],
+          "gender": "female",
+          "birthDate": "2025-01-31",
+          "managingOrganization": {
+            "reference": "Organization/ZW000A42"
+          }
+        }
+      }
+    ],
+    "table": "consultation.neonatal_care"
+  }
+}

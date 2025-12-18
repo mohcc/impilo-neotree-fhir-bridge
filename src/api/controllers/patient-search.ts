@@ -99,12 +99,173 @@ export class PatientSearchController {
   }
 
   /**
+   * Smart name search - accepts full name string and tries both orderings
+   * GET /api/patients/search/by-name?name=dube anna&birthDate=1990-01-01
+   */
+  async searchByName(req: Request, res: Response): Promise<void> {
+    const { name, birthDate, gender } = req.query;
+
+    if (!name || typeof name !== "string") {
+      res.status(400).json({
+        error: "Missing or invalid 'name' query parameter",
+      });
+      return;
+    }
+
+    // Parse the name - split by spaces
+    const nameParts = name.trim().split(/\s+/).filter(part => part.length > 0);
+    
+    if (nameParts.length < 2) {
+      res.status(400).json({
+        error: "Name must contain at least two parts (e.g., 'dube anna' or 'anna dube')",
+      });
+      return;
+    }
+
+    // For 2-word names: try both orderings (given=first/family=second AND given=second/family=first)
+    // For 3+ words: try first-as-given/rest-as-family AND rest-as-given/last-as-family
+    let combination1: SearchParams;
+    let combination2: SearchParams;
+
+    if (nameParts.length === 2) {
+      // Two words: try both orderings
+      combination1 = {
+        given: nameParts[0],
+        family: nameParts[1],
+        birthDate: birthDate as string | undefined,
+        gender: gender as "male" | "female" | "other" | "unknown" | undefined,
+      };
+      combination2 = {
+        given: nameParts[1], // Reverse: second word as given
+        family: nameParts[0], // First word as family
+        birthDate: birthDate as string | undefined,
+        gender: gender as "male" | "female" | "other" | "unknown" | undefined,
+      };
+    } else {
+      // Three or more words: try first-as-given/rest-as-family AND rest-as-given/last-as-family
+      combination1 = {
+        given: nameParts[0],
+        family: nameParts.slice(1).join(" "), // First as given, rest as family
+        birthDate: birthDate as string | undefined,
+        gender: gender as "male" | "female" | "other" | "unknown" | undefined,
+      };
+      combination2 = {
+        given: nameParts.slice(0, -1).join(" "), // All but last as given
+        family: nameParts[nameParts.length - 1], // Last as family
+        birthDate: birthDate as string | undefined,
+        gender: gender as "male" | "female" | "other" | "unknown" | undefined,
+      };
+    }
+
+    try {
+      // Log the combinations being tried
+      console.log(`[Search] Trying combination 1: given="${combination1.given}", family="${combination1.family}"`);
+      console.log(`[Search] Trying combination 2: given="${combination2.given}", family="${combination2.family}"`);
+      
+      // Search with both combinations
+      const [results1, results2] = await Promise.all([
+        this.searchClient.searchByDemographics(combination1),
+        this.searchClient.searchByDemographics(combination2),
+      ]);
+      
+      console.log(`[Search] Combination 1 results: ${results1.length}, Combination 2 results: ${results2.length}`);
+
+      // Combine results and remove duplicates (by patient ID)
+      const allPatients = [...results1, ...results2];
+      const uniquePatients = this.deduplicatePatients(allPatients);
+
+      // Build response
+      const response = this.buildResponse(
+        { name, birthDate, gender } as SearchParams,
+        uniquePatients,
+        "demographics"
+      );
+      
+      // Add note about search strategy
+      if (response.message) {
+        response.message += ` (Searched both "${combination1.given} ${combination1.family}" and "${combination2.given} ${combination2.family}")`;
+      }
+
+      res.status(200).json(response);
+    } catch (err) {
+      this.handleError(res, err);
+    }
+  }
+
+  /**
    * Flexible search with any combination of parameters
+   * Enhanced to handle single 'name' parameter
    * GET /api/patients/search?identifier=X&given=Y&family=Z&birthDate=W&gender=V
+   * GET /api/patients/search?name=dube anna&birthDate=1990-01-01
    */
   async search(req: Request, res: Response): Promise<void> {
-    const { identifier, given, family, birthDate, gender } = req.query;
+    const { identifier, name, given, family, birthDate, gender } = req.query;
 
+    // If 'name' parameter is provided, use smart name search
+    if (name && typeof name === "string") {
+      // Redirect to searchByName logic
+      const nameParts = name.trim().split(/\s+/).filter(part => part.length > 0);
+      
+      if (nameParts.length >= 2) {
+        // Try both combinations
+        let combination1: SearchParams;
+        let combination2: SearchParams;
+
+        if (nameParts.length === 2) {
+          // Two words: try both orderings
+          combination1 = {
+            given: nameParts[0],
+            family: nameParts[1],
+            birthDate: birthDate as string | undefined,
+            gender: gender as "male" | "female" | "other" | "unknown" | undefined,
+          };
+          combination2 = {
+            given: nameParts[1], // Reverse: second word as given
+            family: nameParts[0], // First word as family
+            birthDate: birthDate as string | undefined,
+            gender: gender as "male" | "female" | "other" | "unknown" | undefined,
+          };
+        } else {
+          // Three or more words
+          combination1 = {
+            given: nameParts[0],
+            family: nameParts.slice(1).join(" "),
+            birthDate: birthDate as string | undefined,
+            gender: gender as "male" | "female" | "other" | "unknown" | undefined,
+          };
+          combination2 = {
+            given: nameParts.slice(0, -1).join(" "),
+            family: nameParts[nameParts.length - 1],
+            birthDate: birthDate as string | undefined,
+            gender: gender as "male" | "female" | "other" | "unknown" | undefined,
+          };
+        }
+
+        try {
+          const [results1, results2] = await Promise.all([
+            this.searchClient.searchByDemographics(combination1),
+            this.searchClient.searchByDemographics(combination2),
+          ]);
+
+          const allPatients = [...results1, ...results2];
+          const uniquePatients = this.deduplicatePatients(allPatients);
+
+          const response = this.buildResponse(
+            { name, birthDate, gender } as SearchParams,
+            uniquePatients,
+            "flexible"
+          );
+          
+          res.status(200).json(response);
+          return;
+        } catch (err) {
+          this.handleError(res, err);
+          return;
+        }
+      }
+    }
+
+    // Standard flexible search
     const params: SearchParams = {
       identifier: identifier as string | undefined,
       given: given as string | undefined,
@@ -225,6 +386,23 @@ export class PatientSearchController {
     // Flexible search
     if (count >= 2) return "medium";
     return "low";
+  }
+
+  /**
+   * Remove duplicate patients by ID
+   */
+  private deduplicatePatients(patients: SimplifiedPatient[]): SimplifiedPatient[] {
+    const seen = new Set<string>();
+    const unique: SimplifiedPatient[] = [];
+
+    for (const patient of patients) {
+      if (patient.id && !seen.has(patient.id)) {
+        seen.add(patient.id);
+        unique.push(patient);
+      }
+    }
+
+    return unique;
   }
 
   /**

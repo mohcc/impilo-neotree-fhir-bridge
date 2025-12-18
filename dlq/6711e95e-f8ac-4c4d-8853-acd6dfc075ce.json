@@ -1,0 +1,60 @@
+{
+  "reason": {
+    "message": "HTTP 400",
+    "stack": "Error: HTTP 400\n    at pushObservationsWithRetry (file:///Users/tawandawashaya/Documents/neotree-opencr/dist/push/observation-pipeline.js:73:37)\n    at processTicksAndRejections (node:internal/process/task_queues:96:5)\n    at async pollAndProcess (file:///Users/tawandawashaya/Documents/neotree-opencr/dist/push/observation-pipeline.js:198:36)"
+  },
+  "payload": {
+    "path": "/SHR/fhir",
+    "resource": {
+      "resourceType": "Observation",
+      "id": "neonatal-question-d022c2c1-2581-4442-aa3c-bf50ee9f3dce",
+      "status": "final",
+      "category": [
+        {
+          "coding": [
+            {
+              "system": "urn:neotree:question-category",
+              "code": "65",
+              "display": "Emmergence Triage"
+            }
+          ]
+        }
+      ],
+      "code": {
+        "coding": [
+          {
+            "system": "urn:neotree:data-key",
+            "code": "DangerSigns2",
+            "display": "Secondary Danger Signs"
+          }
+        ]
+      },
+      "subject": {
+        "reference": "Patient/1036b3a0-7c01-41c2-b0d9-320c7219d50b"
+      },
+      "effectiveDateTime": "2025-12-11T08:33:38.000Z",
+      "valueString": "Weak or fast femoral pulses",
+      "extension": [
+        {
+          "url": "urn:neotree:question-metadata",
+          "valueString": "{\"values\":[{\"value\":\"Wkpulse\",\"valueText\":\"Weak or fast femoral pulses\",\"label\":\"Weak or fast femoral pulses\",\"key\":\"DangerSigns2\",\"type\":\"set<id>\",\"dataType\":\"id\",\"confidential\":false}],\"screen\":{\"title\":\"EMERGENCY TRIAGE \",\"sectionTitle\":\"Emergency Triage\",\"id\":\"-MweiZcmth1wUCUAs2dk\",\"screen_id\":\"-MweiZcmth1wUCUAs2dk\",\"screenId\":\"-MweiZcmth1wUCUAs2dk\",\"scriptId\":\"-ZO1TK4zMvLhxTw6eKia\",\"type\":\"multi_select\",\"metadata\":{\"label\":\"Danger Signs B) \",\"dataType\":\"set<id>\"}}}"
+        },
+        {
+          "url": "urn:neotree:neonatal-care-reference",
+          "valueReference": {
+            "reference": "Encounter/4206171e-8d44-400b-91c8-3aa5c667fca1"
+          }
+        }
+      ],
+      "meta": {
+        "tag": [
+          {
+            "system": "http://openclientregistry.org/fhir/clientid",
+            "code": "ZW000A42"
+          }
+        ]
+      }
+    },
+    "patientId": "8ded5425-2b7e-47fc-974d-6a860dade244"
+  }
+}

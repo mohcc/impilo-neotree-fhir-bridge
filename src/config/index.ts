@@ -21,6 +21,7 @@ const envSchema = z.object({
   OPENHIM_PASSWORD: z.string().optional(),
   OPENHIM_CHANNEL_PATH: z.string().optional(),
   OPENHIM_CLIENT_ID: z.string().optional(),
+  SHR_CHANNEL_PATH: z.string().optional(),
 
   PUSH_BATCH_SIZE: z.string().optional(),
   PUSH_CONCURRENCY: z.string().optional(),
@@ -48,6 +49,7 @@ export type AppConfig = {
     password?: string;
     channelPath: string;
     clientId?: string;
+    shrChannelPath: string;
   };
   ops: {
     pushBatchSize: number;
@@ -92,6 +94,7 @@ export function loadConfig(): AppConfig {
       password: parsed.OPENHIM_PASSWORD,
       channelPath: parsed.OPENHIM_CHANNEL_PATH ?? "/opencr/fhir",
       clientId: parsed.OPENHIM_CLIENT_ID ?? parsed.SOURCE_ID,
+      shrChannelPath: parsed.SHR_CHANNEL_PATH ?? "/SHR/fhir",
     },
     ops: {
       pushBatchSize: Number(parsed.PUSH_BATCH_SIZE ?? 50),

@@ -1,0 +1,60 @@
+{
+  "reason": {
+    "message": "HTTP 400",
+    "stack": "Error: HTTP 400\n    at pushObservationsWithRetry (file:///Users/tawandawashaya/Documents/neotree-opencr/dist/push/observation-pipeline.js:73:37)\n    at processTicksAndRejections (node:internal/process/task_queues:96:5)\n    at async pollAndProcess (file:///Users/tawandawashaya/Documents/neotree-opencr/dist/push/observation-pipeline.js:198:36)"
+  },
+  "payload": {
+    "path": "/SHR/fhir",
+    "resource": {
+      "resourceType": "Observation",
+      "id": "neonatal-question-bf61cd36-41f6-4ac6-b650-49750bf2dc69",
+      "status": "final",
+      "category": [
+        {
+          "coding": [
+            {
+              "system": "urn:neotree:question-category",
+              "code": "66",
+              "display": "Vital Signs"
+            }
+          ]
+        }
+      ],
+      "code": {
+        "coding": [
+          {
+            "system": "urn:neotree:data-key",
+            "code": "EnvTemp",
+            "display": "Environmental Temperature Influence?"
+          }
+        ]
+      },
+      "subject": {
+        "reference": "Patient/1036b3a0-7c01-41c2-b0d9-320c7219d50b"
+      },
+      "effectiveDateTime": "2025-12-11T08:33:38.000Z",
+      "valueBoolean": false,
+      "extension": [
+        {
+          "url": "urn:neotree:question-metadata",
+          "valueString": "{\"values\":[{\"value\":false,\"confidential\":false,\"valueText\":\"No\",\"key\":\"EnvTemp\",\"label\":\"No\",\"type\":\"boolean\",\"dataType\":\"boolean\"}],\"screen\":{\"title\":\"Environmental derangement of temperature\",\"sectionTitle\":null,\"id\":\"-MweiZdWevYwvQyO15GG\",\"screen_id\":\"-MweiZdWevYwvQyO15GG\",\"screenId\":\"-MweiZdWevYwvQyO15GG\",\"scriptId\":\"-ZO1TK4zMvLhxTw6eKia\",\"type\":\"yesno\",\"metadata\":{\"label\":\"Environmental cause for temperature\",\"dataType\":\"boolean\"}}}"
+        },
+        {
+          "url": "urn:neotree:neonatal-care-reference",
+          "valueReference": {
+            "reference": "Encounter/4206171e-8d44-400b-91c8-3aa5c667fca1"
+          }
+        }
+      ],
+      "meta": {
+        "tag": [
+          {
+            "system": "http://openclientregistry.org/fhir/clientid",
+            "code": "ZW000A42"
+          }
+        ]
+      }
+    },
+    "patientId": "8ded5425-2b7e-47fc-974d-6a860dade244"
+  }
+}

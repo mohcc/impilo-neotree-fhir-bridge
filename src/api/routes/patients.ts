@@ -31,6 +31,14 @@ export function createPatientRoutes(config: AppConfig): Router {
   });
 
   /**
+   * Smart name search - accepts full name and tries both orderings
+   * GET /api/patients/search/by-name?name=dube anna&birthDate=1990-01-01
+   */
+  router.get("/search/by-name", (req, res) => {
+    void controller.searchByName(req, res);
+  });
+
+  /**
    * Flexible search with any combination of parameters
    * GET /api/patients/search?identifier=XXX&given=Y&family=Z&birthDate=W&gender=V
    */

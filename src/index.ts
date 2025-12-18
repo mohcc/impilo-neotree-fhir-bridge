@@ -2,6 +2,7 @@ import { createServer } from "./server.js";
 import { loadConfig } from "./config/index.js";
 import { createPool } from "./db/mysql.js";
 import { startOpencrPushPipeline } from "./push/pipeline.js";
+import { startNeonatalQuestionPipeline } from "./push/observation-pipeline.js";
 
 async function main(): Promise<void> {
   const config = loadConfig();
@@ -25,7 +26,11 @@ async function main(): Promise<void> {
     process.exit(1);
   }
   
+  // Start patient push pipeline (neonatal_care → Patient resources)
   await startOpencrPushPipeline(pool, config);
+  
+  // Start observation push pipeline (neonatal_question → Observation resources)
+  await startNeonatalQuestionPipeline(pool, config);
 }
 
 void main();

@@ -1,0 +1,60 @@
+{
+  "reason": {
+    "message": "HTTP 400",
+    "stack": "Error: HTTP 400\n    at pushObservationsWithRetry (file:///Users/tawandawashaya/Documents/neotree-opencr/dist/push/observation-pipeline.js:73:37)\n    at processTicksAndRejections (node:internal/process/task_queues:96:5)\n    at async pollAndProcess (file:///Users/tawandawashaya/Documents/neotree-opencr/dist/push/observation-pipeline.js:198:36)"
+  },
+  "payload": {
+    "path": "/SHR/fhir",
+    "resource": {
+      "resourceType": "Observation",
+      "id": "neonatal-question-da5875e8-3910-4bad-9a3e-042ad193a7a0",
+      "status": "final",
+      "category": [
+        {
+          "coding": [
+            {
+              "system": "urn:neotree:question-category",
+              "code": "66",
+              "display": "Vital Signs"
+            }
+          ]
+        }
+      ],
+      "code": {
+        "coding": [
+          {
+            "system": "urn:neotree:data-key",
+            "code": "RR",
+            "display": "Respiratory Rate"
+          }
+        ]
+      },
+      "subject": {
+        "reference": "Patient/1036b3a0-7c01-41c2-b0d9-320c7219d50b"
+      },
+      "effectiveDateTime": "2025-12-11T08:33:38.000Z",
+      "valueInteger": 34,
+      "extension": [
+        {
+          "url": "urn:neotree:question-metadata",
+          "valueString": "{\"values\":[{\"value\":34,\"confidential\":false,\"valueText\":34,\"key\":\"RR\",\"type\":\"number\",\"dataType\":\"number\"}],\"screen\":{\"title\":\"VITAL SIGNS \",\"sectionTitle\":\"Vital Signs\",\"id\":\"-MweiZczY_1IPsjtTPim\",\"screen_id\":\"-MweiZczY_1IPsjtTPim\",\"screenId\":\"-MweiZczY_1IPsjtTPim\",\"scriptId\":\"-ZO1TK4zMvLhxTw6eKia\",\"type\":\"timer\",\"metadata\":{\"label\":\"Respiratory Rate (breaths/min)\",\"dataType\":\"number\"}}}"
+        },
+        {
+          "url": "urn:neotree:neonatal-care-reference",
+          "valueReference": {
+            "reference": "Encounter/4206171e-8d44-400b-91c8-3aa5c667fca1"
+          }
+        }
+      ],
+      "meta": {
+        "tag": [
+          {
+            "system": "http://openclientregistry.org/fhir/clientid",
+            "code": "ZW000A42"
+          }
+        ]
+      }
+    },
+    "patientId": "8ded5425-2b7e-47fc-974d-6a860dade244"
+  }
+}

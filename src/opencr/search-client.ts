@@ -40,23 +40,45 @@ export class OpenCRSearchClient {
   }
 
   /**
+   * Check if identifier is a NEOTREE-IMPILO-ID format
+   * Format: PP-DD-SS-YYYY-P-XXXXX (e.g., 01-0A-34-2025-N-76315)
+   */
+  private isNeotreeImpiloId(identifier: string): boolean {
+    // NEOTREE-IMPILO-ID format: PP-DD-SS-YYYY-P-XXXXX
+    // Example: 01-0A-34-2025-N-76315
+    const neotreeIdRegex = /^[0-9A-Fa-f]{2}-[0-9A-Fa-f]{2}-[0-9A-Fa-f]{2}-\d{4}-[A-Za-z]-\d{5}$/;
+    return neotreeIdRegex.test(identifier.trim());
+  }
+
+  /**
    * Search by NEOTREE-IMPILO-ID or Patient ID
+   * Automatically detects identifier format and uses appropriate system
    */
   async searchByIdentifier(identifier: string): Promise<SimplifiedPatient[]> {
-    // Try both identifier systems
-    const neotreeQuery = this.buildSearchUrl({
-      identifier: `urn:neotree:impilo-id|${identifier}`
-    });
-    const patientIdQuery = this.buildSearchUrl({
-      identifier: `urn:impilo:uid|${identifier}`
-    });
-
-    // Try NEOTREE-ID first
-    const neotreeResult = await this.executeSearch(neotreeQuery);
-    if (neotreeResult.length > 0) return neotreeResult;
-
-    // Fall back to patient ID
-    return this.executeSearch(patientIdQuery);
+    const trimmed = identifier.trim();
+    
+    // Detect identifier format and use appropriate system
+    if (this.isNeotreeImpiloId(trimmed)) {
+      // It's a NEOTREE-IMPILO-ID format (e.g., 01-0A-34-2025-N-76315)
+      const neotreeQuery = this.buildSearchUrl({
+        identifier: `urn:neotree:impilo-id|${trimmed}`
+      });
+      const neotreeResult = await this.executeSearch(neotreeQuery);
+      if (neotreeResult.length > 0) return neotreeResult;
+      
+      // Fall back to patient ID search in case it's stored differently
+      const patientIdQuery = this.buildSearchUrl({
+        identifier: `urn:impilo:uid|${trimmed}`
+      });
+      return this.executeSearch(patientIdQuery);
+    } else {
+      // It's a UUID or other format (e.g., 8ded5425-2b7e-47fc-974d-6a860dade244)
+      // Only search with urn:impilo:uid
+      const patientIdQuery = this.buildSearchUrl({
+        identifier: `urn:impilo:uid|${trimmed}`
+      });
+      return this.executeSearch(patientIdQuery);
+    }
   }
 
   /**
@@ -133,22 +155,29 @@ export class OpenCRSearchClient {
    */
   private async executeSearch(searchUrl: string): Promise<SimplifiedPatient[]> {
     try {
+      const fullUrl = `${this.client.baseUrl}${searchUrl}`;
+      console.log(`[OpenCR Search] Executing search: ${fullUrl}`);
+      
       const result = await this.client.get(searchUrl);
       
+      console.log(`[OpenCR Search] Response status: ${result.status}, URL: ${fullUrl}`);
+      
       if (result.status !== 200) {
-        console.error(`[OpenCR Search] HTTP ${result.status}`);
+        console.error(`[OpenCR Search] HTTP ${result.status} for URL: ${fullUrl}`);
         return [];
       }
 
       const bundle = result.body as FhirBundle;
       
       if (!bundle.entry || bundle.entry.length === 0) {
+        console.log(`[OpenCR Search] No results found for: ${fullUrl}`);
         return [];
       }
 
+      console.log(`[OpenCR Search] Found ${bundle.entry.length} result(s) for: ${fullUrl}`);
       return bundle.entry.map(entry => this.transformToSimplified(entry.resource));
     } catch (err) {
-      console.error("[OpenCR Search] Error:", err);
+      console.error(`[OpenCR Search] Error for URL: ${searchUrl}`, err);
       return [];
     }
   }

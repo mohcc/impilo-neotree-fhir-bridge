@@ -14,15 +14,15 @@ export class PatientMapper implements Mapper<NeonatalCareRow, PatientResource> {
     }
 
     // Build identifiers
-    // Order matters: NEOTREE-IMPILO-ID first (highest priority for matching), then patient_id
+    // Order matters: IMPILO-NEOTREE-ID first (highest priority for matching), then patient_id, then person_id
     const identifiers: Array<{ system: string; value: string }> = [];
     
-    // Primary identifier: NEOTREE-IMPILO-ID (highest priority, unique identifier)
+    // Primary identifier: IMPILO-NEOTREE-ID (highest priority, unique identifier)
     // Format: PP-DD-SS-YYYY-P-XXXXX (e.g., 00-0A-34-2025-N-01031)
-    if (row.neotree_id && String(row.neotree_id).trim()) {
+    if (row.impilo_neotree_id && String(row.impilo_neotree_id).trim()) {
       identifiers.push({
         system: "urn:neotree:impilo-id",
-        value: String(row.neotree_id).trim()
+        value: String(row.impilo_neotree_id).trim()
       });
     }
     
@@ -31,6 +31,14 @@ export class PatientMapper implements Mapper<NeonatalCareRow, PatientResource> {
       identifiers.push({
         system: "urn:impilo:uid",
         value: String(row.patient_id)
+      });
+    }
+    
+    // Tertiary identifier: person_id (uniquely identifies a patient at one facility)
+    if (row.person_id) {
+      identifiers.push({
+        system: "urn:impilo:person-id",
+        value: String(row.person_id)
       });
     }
 

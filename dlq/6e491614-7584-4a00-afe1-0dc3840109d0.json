@@ -1,0 +1,53 @@
+{
+  "reason": {
+    "message": "Validation failed: Invalid NEOTREE-IMPILO-ID format: CC28-8980. Expected format: PP-DD-SS-YYYY-P-XXXXX (e.g., 00-0A-34-2025-N-01031)",
+    "stack": "Error: Validation failed: Invalid NEOTREE-IMPILO-ID format: CC28-8980. Expected format: PP-DD-SS-YYYY-P-XXXXX (e.g., 00-0A-34-2025-N-01031)\n    at pollAndProcess (file:///Users/tawandawashaya/Documents/neotree-opencr/dist/push/pipeline.js:131:176)\n    at runMicrotasks (<anonymous>)\n    at processTicksAndRejections (node:internal/process/task_queues:96:5)"
+  },
+  "payload": {
+    "path": "/CR/fhir",
+    "entries": [
+      {
+        "request": {
+          "method": "POST",
+          "url": "Patient"
+        },
+        "resource": {
+          "resourceType": "Patient",
+          "meta": {
+            "tag": [
+              {
+                "system": "http://openclientregistry.org/fhir/clientid",
+                "code": "ZW000A42"
+              }
+            ]
+          },
+          "identifier": [
+            {
+              "system": "urn:neotree:impilo-id",
+              "value": "CC28-8980"
+            },
+            {
+              "system": "urn:impilo:uid",
+              "value": "22de7583-81e4-4fa4-8205-ed9bbf3d5f9e"
+            }
+          ],
+          "name": [
+            {
+              "use": "official",
+              "family": "Chigoriwa",
+              "given": [
+                "Charles"
+              ]
+            }
+          ],
+          "gender": "female",
+          "birthDate": "2025-11-30",
+          "managingOrganization": {
+            "reference": "Organization/ZW000A42"
+          }
+        }
+      }
+    ],
+    "table": "consultation.neonatal_care"
+  }
+}
