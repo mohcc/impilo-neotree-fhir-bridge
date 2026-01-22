@@ -126,17 +126,14 @@ export async function fetchNeonatalCareWithDemographics(
   watermarkExclusive: string | null,
   batchSize: number
 ): Promise<NeonatalCareWithDemographics[]> {
-  // Watermark is stored as UTC string "YYYY-MM-DD HH:MM:SS"
-  // Interpret the watermark string as UTC, then convert to CAT (Zimbabwe time, UTC+2) for comparison
-  // Note: Database stores timestamps in CAT (Central Africa Time, UTC+2) - Zimbabwe timezone
-  // Zimbabwe uses CAT which is UTC+2 (no daylight saving time changes)
+  // Watermark is stored as CAT (Zimbabwe time, UTC+2) string "YYYY-MM-DD HH:MM:SS"
+  // Database stores timestamps in CAT - no conversion needed, direct comparison
   const where = watermarkExclusive
-    ? "WHERE nc.date_time_admission > CONVERT_TZ(STR_TO_DATE(?, '%Y-%m-%d %H:%i:%s'), '+00:00', '+02:00')"
+    ? "WHERE nc.date_time_admission > STR_TO_DATE(?, '%Y-%m-%d %H:%i:%s')"
     : "";
-  // Convert datetime from CAT to UTC before formatting to ensure consistent timezone handling
+  // Keep dates in CAT (Zimbabwe time) - no timezone conversion
   // Using client.person table which contains all required fields including demographics and address
   // LEFT JOIN client.patient_identity to get phid (Primary Health ID) - highest priority identifier
-  // SELECT * from client.person to get all fields (firstname, lastname, birthdate, sex, address fields, etc.)
   //
   // Fields from consultation.neonatal_care (nc):
   // - neonatal_care_id, patient_id, neotree_id, date_time_admission, impilo_neotree_id, person_id
@@ -148,10 +145,7 @@ export async function fetchNeonatalCareWithDemographics(
       nc.impilo_neotree_id,  -- Second highest priority identifier (from neonatal_care table)
       nc.neotree_id,  -- Also available but impilo_neotree_id takes precedence
       nc.person_id as nc_person_id,  -- person_id from neonatal_care (for reference)
-      DATE_FORMAT(
-        CONVERT_TZ(nc.date_time_admission, '+02:00', '+00:00'),
-        '%Y-%m-%d %H:%i:%s'
-      ) as date_time_admission,
+      DATE_FORMAT(nc.date_time_admission, '%Y-%m-%d %H:%i:%s') as date_time_admission,
       p.facility_id,
       p.person_id,  -- person_id from patient table (used for joins)
       -- Select all fields from client.person (includes firstname, lastname, birthdate, sex, and all address fields)
@@ -204,27 +198,17 @@ export interface NeonatalQuestionRow extends RowDataPacket {
 
 export async function fetchNeonatalQuestions(
   pool: Pool,
-  watermarkExclusive: string | null, // Last processed date (YYYY-MM-DD HH:MM:SS in UTC)
+  watermarkExclusive: string | null, // Last processed date (YYYY-MM-DD HH:MM:SS in CAT/Zimbabwe time)
   batchSize: number
 ): Promise<NeonatalQuestionRow[]> {
-  // Watermark is stored as UTC string "YYYY-MM-DD HH:MM:SS"
-  // The watermark value represents the last processed datetime in UTC
-  // 
-  // Comparison logic for accurate datetime tracking (matches neonatal_care pattern):
-  // 1. Parse watermark string and treat as UTC: STR_TO_DATE(?, '%Y-%m-%d %H:%i:%s')
-  // 2. Convert watermark from UTC to CAT (Zimbabwe time): CONVERT_TZ(..., '+00:00', '+02:00')
-  // 3. Compare: nq.date (in CAT/Zimbabwe) > watermark (converted to CAT)
-  //
-  // This ensures accurate tracking even if records are inserted out of order
-  // Note: Database stores LocalDateTime in CAT (Central Africa Time, UTC+2) - Zimbabwe timezone
-  // Zimbabwe uses CAT which is UTC+2 (no daylight saving time)
+  // Watermark is stored as CAT (Zimbabwe time, UTC+2) string "YYYY-MM-DD HH:MM:SS"
+  // Database stores LocalDateTime in CAT timezone - no conversion needed
+  // Direct comparison: nq.date (CAT) > watermark (CAT)
   const where = watermarkExclusive
-    ? "WHERE nq.date > CONVERT_TZ(STR_TO_DATE(?, '%Y-%m-%d %H:%i:%s'), '+00:00', '+02:00')"
+    ? "WHERE nq.date > STR_TO_DATE(?, '%Y-%m-%d %H:%i:%s')"
     : "";
   
-  // Convert datetime from CAT (Zimbabwe time, UTC+2) to UTC before formatting
-  // The date column is stored as LocalDateTime in CAT timezone (Zimbabwe)
-  // We convert it to UTC for watermark storage and comparison to ensure accuracy
+  // Keep dates in CAT (Zimbabwe time) - no timezone conversion
   const sql = `
     SELECT 
       nq.id,
@@ -241,21 +225,15 @@ export async function fetchNeonatalQuestions(
       nq.display_key,
       nq.display_value,
       nq.display_order,
-      DATE_FORMAT(
-        CONVERT_TZ(nq.date, '+02:00', '+00:00'),
-        '%Y-%m-%d %H:%i:%s'
-      ) as date,
-      DATE_FORMAT(
-        CONVERT_TZ(nc.date_time_admission, '+02:00', '+00:00'),
-        '%Y-%m-%d %H:%i:%s'
-      ) as date_time_admission,
+      DATE_FORMAT(nq.date, '%Y-%m-%d %H:%i:%s') as date,
+      DATE_FORMAT(nc.date_time_admission, '%Y-%m-%d %H:%i:%s') as date_time_admission,
       nc.person_id,
       nc.impilo_neotree_id
     FROM \`consultation\`.\`neonatal_question\` nq
     INNER JOIN \`consultation\`.\`neonatal_care\` nc 
       ON nq.neonatal_care_id = nc.neonatal_care_id
     ${where}
-    ORDER BY CONVERT_TZ(nq.date, '+02:00', '+00:00'), nq.id
+    ORDER BY nq.date, nq.id
     LIMIT ?
   `;
   
