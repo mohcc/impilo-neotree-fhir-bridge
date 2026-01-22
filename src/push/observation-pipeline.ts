@@ -224,12 +224,27 @@ export async function startNeonatalQuestionPipeline(pool: Pool, config: AppConfi
       
       // Process each patient's observations
       for (const [patientId, observations] of byPatient.entries()) {
-        // Verify patient exists in OpenCR and get the Patient resource ID
-        const patientResourceId = await patientVerifier.verifyPatientExists(patientId);
+        // Get the best identifier for OpenCR search from the first observation
+        // Priority: impilo_neotree_id > person_id > patient_id
+        const firstObs = observations[0];
+        const searchIdentifier = firstObs?.impilo_neotree_id || firstObs?.person_id || patientId;
+        
+        logger.debug(
+          { 
+            patientId, 
+            searchIdentifier,
+            impilo_neotree_id: firstObs?.impilo_neotree_id,
+            person_id: firstObs?.person_id
+          },
+          "Searching OpenCR with best available identifier"
+        );
+        
+        // Verify patient exists in OpenCR and get the Patient resource ID (Golden ID)
+        const patientResourceId = await patientVerifier.verifyPatientExists(searchIdentifier);
         
         if (!patientResourceId) {
           logger.warn(
-            { patientId, observationCount: observations.length },
+            { patientId, searchIdentifier, observationCount: observations.length },
             "Patient not found in OpenCR, queuing observations"
           );
           await queue.enqueue(patientId, observations);
@@ -238,8 +253,8 @@ export async function startNeonatalQuestionPipeline(pool: Pool, config: AppConfi
         }
         
         logger.debug(
-          { patientId, patientResourceId },
-          "Patient found in OpenCR, using resource ID for Observation references"
+          { patientId, searchIdentifier, patientResourceId },
+          "Patient found in OpenCR, using Golden ID for Observation references"
         );
         
         // Process any queued observations for this patient first

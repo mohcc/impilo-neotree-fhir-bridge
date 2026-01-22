@@ -114,26 +114,26 @@ export class OpenCRSearchClient {
     // 4. It's a UUID or other format (e.g., 8ded5425-2b7e-47fc-974d-6a860dade244)
     // Try multiple identifier systems in order of priority
     
-    // 4a. Try phid first (in case it's a phid that doesn't match strict 8-char pattern)
-    const phidQuery = this.buildSearchUrl({
-      identifier: `urn:impilo:phid|${trimmed}`
+    // 4a. Try urn:impilo:uid first (we push this mapped to person_id)
+    const uidQuery = this.buildSearchUrl({
+      identifier: `urn:impilo:uid|${trimmed}`
     });
-    const phidResult = await this.executeSearch(phidQuery);
-    if (phidResult.length > 0) return phidResult;
+    const uidResult = await this.executeSearch(uidQuery);
+    if (uidResult.length > 0) return uidResult;
     
-    // 4b. Try patient-id
-    const patientIdQuery = this.buildSearchUrl({
-      identifier: `urn:impilo:patient-id|${trimmed}`
-    });
-    const patientIdResult = await this.executeSearch(patientIdQuery);
-    if (patientIdResult.length > 0) return patientIdResult;
-    
-    // 4c. Try person-id if patient-id didn't work
+    // 4b. Try person-id
     const personIdQuery = this.buildSearchUrl({
       identifier: `urn:impilo:person-id|${trimmed}`
     });
     const personIdResult = await this.executeSearch(personIdQuery);
     if (personIdResult.length > 0) return personIdResult;
+    
+    // 4c. Try phid (in case it's a phid that doesn't match strict 8-char pattern)
+    const phidQuery = this.buildSearchUrl({
+      identifier: `urn:impilo:phid|${trimmed}`
+    });
+    const phidResult = await this.executeSearch(phidQuery);
+    if (phidResult.length > 0) return phidResult;
     
     // 4d. Return empty if none worked
     return [];

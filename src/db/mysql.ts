@@ -197,6 +197,9 @@ export interface NeonatalQuestionRow extends RowDataPacket {
   display_order: number | null;
   date: Date | string | null; // LocalDateTime column for watermark tracking (stored in CAT/Zimbabwe time UTC+2, converted to UTC for storage)
   date_time_admission: Date | string | null;
+  // From neonatal_care join - for OpenCR lookup
+  person_id: string | null;
+  impilo_neotree_id: string | null;
 }
 
 export async function fetchNeonatalQuestions(
@@ -245,7 +248,9 @@ export async function fetchNeonatalQuestions(
       DATE_FORMAT(
         CONVERT_TZ(nc.date_time_admission, '+02:00', '+00:00'),
         '%Y-%m-%d %H:%i:%s'
-      ) as date_time_admission
+      ) as date_time_admission,
+      nc.person_id,
+      nc.impilo_neotree_id
     FROM \`consultation\`.\`neonatal_question\` nq
     INNER JOIN \`consultation\`.\`neonatal_care\` nc 
       ON nq.neonatal_care_id = nc.neonatal_care_id
