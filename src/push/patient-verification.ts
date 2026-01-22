@@ -189,7 +189,7 @@ export class PatientVerificationService {
       const opencrPatientFull = opencrPatientResult.body as FhirPatient;
       
       // Prepare shallow Patient for SHR
-      // SHR only needs: identifier + gender + birthDate (DOB) for linking Observations
+      // SHR only needs: identifier + gender + birthDate + managingOrganization for linking Observations
       // Full demographics (name, address) stay in OpenCR (master patient index)
       const shrPatient: FhirPatient = {
         resourceType: "Patient",
@@ -199,6 +199,8 @@ export class PatientVerificationService {
         gender: opencrPatientFull.gender,
         // Keep birthDate (DOB)
         birthDate: opencrPatientFull.birthDate,
+        // Keep managingOrganization (facility reference)
+        managingOrganization: opencrPatientFull.managingOrganization,
         // NO other demographics: name, address stay in OpenCR only
       };
 
@@ -209,13 +211,13 @@ export class PatientVerificationService {
           identifierCount: shrPatient.identifier?.length || 0,
           gender: shrPatient.gender,
           birthDate: shrPatient.birthDate,
+          managingOrganization: shrPatient.managingOrganization?.reference,
           excludedFields: {
             name: !!opencrPatientFull.name,
-            address: !!opencrPatientFull.address,
-            managingOrganization: !!opencrPatientFull.managingOrganization
+            address: !!opencrPatientFull.address
           }
         },
-        "Prepared shallow Patient for SHR (identifier + gender + DOB)"
+        "Prepared shallow Patient for SHR (identifier + gender + DOB + organization)"
       );
 
       // POST Patient to SHR
