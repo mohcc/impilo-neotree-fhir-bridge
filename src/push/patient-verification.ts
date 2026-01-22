@@ -189,35 +189,57 @@ export class PatientVerificationService {
       const opencrPatientFull = opencrPatientResult.body as FhirPatient;
       
       // Prepare shallow Patient for SHR
-      // SHR only needs: identifier + gender + birthDate + managingOrganization for linking Observations
-      // Full demographics (name, address) stay in OpenCR (master patient index)
+      // SHR only needs: person-id + golden-id + gender + birthDate + managingOrganization
+      // Full demographics (name, address) and other identifiers stay in OpenCR
+      
+      // Extract only person-id from OpenCR identifiers
+      const personIdIdentifier = opencrPatientFull.identifier?.find(
+        id => id.system === "urn:impilo:person-id"
+      );
+      
+      // Build minimal identifiers for SHR: person-id + golden-id (OpenCR resource ID)
+      const shrIdentifiers: Array<{ system: string; value: string }> = [];
+      
+      // Add person-id if available
+      if (personIdIdentifier) {
+        shrIdentifiers.push(personIdIdentifier);
+      }
+      
+      // Add OpenCR Golden ID (the master record reference)
+      // Normalize: strip "Patient/" prefix if present
+      let goldenId = opencrPatientId;
+      if (goldenId.startsWith("Patient/")) {
+        goldenId = goldenId.replace("Patient/", "");
+      }
+      shrIdentifiers.push({
+        system: "urn:opencr:golden-id",
+        value: goldenId
+      });
+      
       const shrPatient: FhirPatient = {
         resourceType: "Patient",
-        // Keep identifiers (needed for linking and lookup)
-        identifier: opencrPatientFull.identifier,
+        // Only person-id + golden-id (minimal for linking)
+        identifier: shrIdentifiers,
         // Keep gender
         gender: opencrPatientFull.gender,
         // Keep birthDate (DOB)
         birthDate: opencrPatientFull.birthDate,
         // Keep managingOrganization (facility reference)
         managingOrganization: opencrPatientFull.managingOrganization,
-        // NO other demographics: name, address stay in OpenCR only
+        // NO other demographics or identifiers
       };
 
       logger.debug(
         {
           patientId,
           opencrPatientId,
-          identifierCount: shrPatient.identifier?.length || 0,
+          goldenId,
+          identifiers: shrIdentifiers.map(i => `${i.system}|${i.value}`),
           gender: shrPatient.gender,
           birthDate: shrPatient.birthDate,
           managingOrganization: shrPatient.managingOrganization?.reference,
-          excludedFields: {
-            name: !!opencrPatientFull.name,
-            address: !!opencrPatientFull.address
-          }
         },
-        "Prepared shallow Patient for SHR (identifier + gender + DOB + organization)"
+        "Prepared shallow Patient for SHR (person-id + golden-id + gender + DOB + organization)"
       );
 
       // POST Patient to SHR
