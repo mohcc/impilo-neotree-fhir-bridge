@@ -115,22 +115,14 @@ export class PatientVerificationService {
       
       const opencrPatientId = opencrPatient.id;
       
-      // Get the best identifier for SHR lookup (priority: phid > neotreeId > personId)
-      const shrLookupIdentifier = opencrPatient.identifiers.phid 
-        ? { system: "urn:impilo:phid", value: opencrPatient.identifiers.phid }
-        : opencrPatient.identifiers.neotreeId
-        ? { system: "urn:neotree:impilo-id", value: opencrPatient.identifiers.neotreeId }
-        : opencrPatient.identifiers.personId
+      // Get identifier for SHR lookup - MUST match what we push to SHR
+      // We only push: person-id + golden-id to SHR
+      // So we can only search by person-id or golden-id (NOT phid or neotree-id)
+      const shrLookupIdentifier = opencrPatient.identifiers.personId
         ? { system: "urn:impilo:person-id", value: opencrPatient.identifiers.personId }
-        : null;
+        : { system: "urn:opencr:golden-id", value: opencrPatientId }; // Always have golden-id
 
-      if (!shrLookupIdentifier) {
-        logger.warn(
-          { patientId, opencrPatientId },
-          "Patient found in OpenCR but has no usable identifier for SHR lookup"
-        );
-        return null;
-      }
+      // Golden-id fallback means we always have a valid identifier
 
       logger.debug(
         { patientId, foundIn: "OpenCR", opencrPatientId, shrLookupIdentifier },
