@@ -37,10 +37,14 @@ export class PatientMapper implements Mapper<NeonatalCareRow, PatientResource> {
     }
     
     // Tertiary identifier: person_id (uniquely identifies a patient at one facility)
-    // Note: urn:impilo:uid and urn:impilo:patient-id removed - not needed for OpenCR
     if (row.person_id) {
       identifiers.push({
         system: "urn:impilo:person-id",
+        value: String(row.person_id)
+      });
+      // Also add urn:impilo:uid mapped to person_id (required by OpenCR for internalid)
+      identifiers.push({
+        system: "urn:impilo:uid",
         value: String(row.person_id)
       });
     }
