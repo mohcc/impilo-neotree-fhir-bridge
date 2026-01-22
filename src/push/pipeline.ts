@@ -191,22 +191,41 @@ export async function startOpencrPushPipeline(pool: Pool, config: AppConfig): Pr
       // Push each Patient individually with retry
       const path = config.openhim.channelPath;
       let successCount = 0;
+      let failureCount = 0;
+      
       for (const entry of validatedEntries) {
         try {
           const res = await pushPatientWithRetry(path, entry.resource, 3);
-          successCount += (res.status >= 200 && res.status < 300) ? 1 : 0;
-          logger.info({ status: res.status }, "pushed patient to OpenHIM");
+          if (res.status >= 200 && res.status < 300) {
+            successCount++;
+            logger.info({ status: res.status }, "pushed patient to OpenCR");
+          } else {
+            failureCount++;
+            logger.error({ status: res.status }, "OpenCR returned error status");
+            await writeDlq({ path, entries: [entry], table: watermarkKey }, new Error(`OpenCR returned status ${res.status}`));
+          }
         } catch (err) {
-          logger.error({ err }, "failed to push patient to OpenHIM after retries");
+          failureCount++;
+          logger.error({ err }, "failed to push patient to OpenCR after retries");
           await writeDlq({ path, entries: [entry], table: watermarkKey }, err);
         }
       }
 
-      // Update watermark with the latest date_time_admission regardless of partial failures
+      // Only update watermark if ALL records succeeded
+      // If any failed, don't update watermark - will re-process on next poll
       const lastRow = rows[rows.length - 1];
-      if (lastRow) {
+      if (failureCount === 0 && lastRow) {
         const lastUpdated = String(lastRow.date_time_admission);
         await setWatermark(pool, config.ops.watermarkTable, watermarkKey, lastUpdated);
+        logger.info(
+          { successCount, newWatermark: lastUpdated },
+          "All patients pushed successfully, watermark updated"
+        );
+      } else if (failureCount > 0) {
+        logger.warn(
+          { successCount, failureCount, total: validatedEntries.length },
+          "Some patients failed to push - watermark NOT updated, will retry on next poll"
+        );
       }
     } catch (err) {
       logger.error({ err }, "error in pollAndProcess");

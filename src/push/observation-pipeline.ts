@@ -217,6 +217,11 @@ export async function startNeonatalQuestionPipeline(pool: Pool, config: AppConfi
       // Group by patient_id
       const byPatient = groupByPatient(rows);
       
+      // Track overall success/failure for watermark decision
+      let totalSuccess = 0;
+      let totalFailed = 0;
+      let totalQueued = 0;
+      
       // Process each patient's observations
       for (const [patientId, observations] of byPatient.entries()) {
         // Verify patient exists in OpenCR and get the Patient resource ID
@@ -228,6 +233,7 @@ export async function startNeonatalQuestionPipeline(pool: Pool, config: AppConfi
             "Patient not found in OpenCR, queuing observations"
           );
           await queue.enqueue(patientId, observations);
+          totalQueued += observations.length;
           continue;
         }
         
@@ -278,11 +284,14 @@ export async function startNeonatalQuestionPipeline(pool: Pool, config: AppConfi
             { path: shrPath, resource: { id: row.id, patientId }, table: watermarkKey },
             new Error("Validation or mapping failed")
           );
+          totalFailed++;
         }
         
         // Push valid observations
         if (fhirObservations.length > 0) {
           const result = await pushObservationsWithRetry(shrPath, fhirObservations, patientId);
+          totalSuccess += result.success;
+          totalFailed += result.failed;
           
           logger.info(
             {
@@ -298,19 +307,27 @@ export async function startNeonatalQuestionPipeline(pool: Pool, config: AppConfi
         }
       }
       
-      // Update watermark only after successful processing
-      // Use date (LocalDateTime) instead of ID for accurate chronological tracking
-      // The date is already converted to UTC format "YYYY-MM-DD HH:MM:SS" by the query
+      // Only update watermark if ALL observations succeeded (none failed, none queued)
+      // If any failed or queued, don't update watermark - will re-process on next poll
       const lastRow = rows[rows.length - 1];
-      if (lastRow && lastRow.date) {
-        const lastUpdated = String(lastRow.date);
-        await setWatermark(pool, config.ops.watermarkTable, watermarkKey, lastUpdated);
-        logger.debug({ watermark: lastUpdated, table: watermarkKey }, "Updated watermark with date");
-      } else if (lastRow) {
-        // Fallback to ID if date is not available (shouldn't happen if date column exists)
-        logger.warn({ observationId: lastRow.id }, "date column not available, falling back to ID for watermark");
-        await setWatermark(pool, config.ops.watermarkTable, watermarkKey, lastRow.id);
-        logger.debug({ watermark: lastRow.id, table: watermarkKey }, "Updated watermark (using ID fallback)");
+      if (totalFailed === 0 && totalQueued === 0 && lastRow) {
+        if (lastRow.date) {
+          const lastUpdated = String(lastRow.date);
+          await setWatermark(pool, config.ops.watermarkTable, watermarkKey, lastUpdated);
+          logger.info(
+            { watermark: lastUpdated, totalSuccess, table: watermarkKey },
+            "All observations pushed successfully, watermark updated"
+          );
+        } else {
+          // Fallback to ID if date is not available
+          logger.warn({ observationId: lastRow.id }, "date column not available, falling back to ID for watermark");
+          await setWatermark(pool, config.ops.watermarkTable, watermarkKey, lastRow.id);
+        }
+      } else if (totalFailed > 0 || totalQueued > 0) {
+        logger.warn(
+          { totalSuccess, totalFailed, totalQueued, total: rows.length },
+          "Some observations failed or queued - watermark NOT updated, will retry on next poll"
+        );
       }
     } catch (err) {
       logger.error({ err }, "Error in pollAndProcess for observations");
