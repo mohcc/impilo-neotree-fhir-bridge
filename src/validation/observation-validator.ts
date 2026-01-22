@@ -66,12 +66,23 @@ export class ObservationValidator {
       const date = new Date(observation.effectiveDateTime);
       if (Number.isNaN(date.getTime())) {
         errors.push(`Invalid effectiveDateTime format: ${observation.effectiveDateTime}`);
+      } else {
+        // Check if effectiveDateTime is in the future (more than 1 hour buffer for clock skew)
+        const now = new Date();
+        const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
+        if (date > oneHourFromNow) {
+          warnings.push(`effectiveDateTime is in the future: ${observation.effectiveDateTime}`);
+        }
       }
     }
 
     // Warnings
     if (!observation.effectiveDateTime) {
       warnings.push("Observation should have effectiveDateTime");
+    }
+    
+    if (!observation.issued) {
+      warnings.push("Observation should have issued timestamp");
     }
 
     if (!observation.category || observation.category.length === 0) {
@@ -137,6 +148,7 @@ export class ObservationValidator {
       .replace(/\s+/g, " "); // Normalize whitespace
   }
 }
+
 
 
 

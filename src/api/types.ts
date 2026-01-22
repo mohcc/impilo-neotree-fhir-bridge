@@ -14,8 +14,10 @@ export interface SearchParams {
 export interface SimplifiedPatient {
   id: string;                                    // FHIR resource ID
   identifiers: {
+    phid?: string;                               // Primary Health ID (urn:impilo:phid) - e.g., 203A2814
     neotreeId?: string;                          // NEOTREE-IMPILO-ID
-    patientId?: string;                          // Patient ID (urn:impilo:uid)
+    patientId?: string;                          // Patient ID (urn:impilo:patient-id)
+    personId?: string;                           // Person ID (urn:impilo:person-id)
   };
   name: {
     given?: string;                              // First given name

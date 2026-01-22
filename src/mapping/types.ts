@@ -13,6 +13,16 @@ export interface PatientResource extends FhirResource {
   name?: Array<{ use?: string; family?: string; given?: string[] }>;
   gender?: "male" | "female" | "other" | "unknown";
   birthDate?: string; // YYYY-MM-DD
+  address?: Array<{
+    use?: "home" | "work" | "temp" | "old" | "billing";
+    type?: "postal" | "physical" | "both";
+    line?: string[];
+    city?: string;
+    district?: string;
+    state?: string;
+    postalCode?: string;
+    country?: string;
+  }>;
   managingOrganization?: { reference?: string };
 }
 
@@ -39,6 +49,7 @@ export interface ObservationResource extends FhirResource {
     reference?: string;
   };
   effectiveDateTime?: string; // ISO 8601 datetime
+  issued?: string; // ISO 8601 datetime - when the observation was made available
   valueInteger?: number;
   valueString?: string;
   valueBoolean?: boolean;

@@ -81,27 +81,77 @@ export class PatientVerificationService {
         return null;
       }
 
-      const opencrPatientId = opencrPatients[0]!.id;
+      // Select the best patient when duplicates exist
+      // Priority: 1) Has PHID (most authoritative), 2) Most identifiers
+      let opencrPatient = opencrPatients[0]!;
+      
+      if (opencrPatients.length > 1) {
+        logger.warn(
+          { patientId, count: opencrPatients.length },
+          "Multiple patients found with same identifier - selecting best match"
+        );
+        
+        // Prefer patient with PHID (primary identifier)
+        const patientWithPhid = opencrPatients.find(p => p.identifiers.phid);
+        if (patientWithPhid) {
+          opencrPatient = patientWithPhid;
+          logger.debug(
+            { selectedId: opencrPatient.id, phid: opencrPatient.identifiers.phid },
+            "Selected patient with PHID"
+          );
+        } else {
+          // Fall back to patient with most identifiers
+          opencrPatient = opencrPatients.reduce((best, current) => {
+            const bestCount = Object.values(best.identifiers).filter(Boolean).length;
+            const currentCount = Object.values(current.identifiers).filter(Boolean).length;
+            return currentCount > bestCount ? current : best;
+          });
+          logger.debug(
+            { selectedId: opencrPatient.id },
+            "Selected patient with most identifiers"
+          );
+        }
+      }
+      
+      const opencrPatientId = opencrPatient.id;
+      
+      // Get the best identifier for SHR lookup (priority: phid > neotreeId > personId)
+      const shrLookupIdentifier = opencrPatient.identifiers.phid 
+        ? { system: "urn:impilo:phid", value: opencrPatient.identifiers.phid }
+        : opencrPatient.identifiers.neotreeId
+        ? { system: "urn:neotree:impilo-id", value: opencrPatient.identifiers.neotreeId }
+        : opencrPatient.identifiers.personId
+        ? { system: "urn:impilo:person-id", value: opencrPatient.identifiers.personId }
+        : null;
+
+      if (!shrLookupIdentifier) {
+        logger.warn(
+          { patientId, opencrPatientId },
+          "Patient found in OpenCR but has no usable identifier for SHR lookup"
+        );
+        return null;
+      }
+
       logger.debug(
-        { patientId, foundIn: "OpenCR", opencrPatientId },
+        { patientId, foundIn: "OpenCR", opencrPatientId, shrLookupIdentifier },
         "Patient verified in OpenCR"
       );
 
       // Step 2: Check if Patient exists in SHR
-      // Note: patientId from neonatal_question is a UUID (patient_id), not a NEOTREE-IMPILO-ID
-      // NEOTREE-IMPILO-ID format: 00-0A-34-2025-N-01031
-      // UUID format: 8ded5425-2b7e-47fc-974d-6a860dade244
-      // Only search with urn:impilo:uid since we have a UUID, not a NEOTREE-IMPILO-ID
-      // URL encode the pipe character (%7C) and the patient ID
-      const encodedPatientId = encodeURIComponent(patientId);
-      const patientIdQuery = `${this.shrChannelPath}/Patient?identifier=urn:impilo:uid%7C${encodedPatientId}`;
+      // Use identifier from OpenCR Patient (phid, neotree-id, or person-id)
+      const encodedIdentifier = encodeURIComponent(`${shrLookupIdentifier.system}|${shrLookupIdentifier.value}`);
+      const patientIdQuery = `${this.shrChannelPath}/Patient?identifier=${encodedIdentifier}`;
 
-      // Search with patient ID (UUID)
+      // Search SHR with identifier
       const result = await this.shrClient.get(patientIdQuery);
       if (result.status === 200) {
         const bundle = result.body as { entry?: Array<{ resource: { id: string } }> };
         if (bundle.entry && bundle.entry.length > 0) {
-          const shrPatientResourceId = bundle.entry[0]!.resource.id;
+          // Normalize: strip "Patient/" prefix if present
+          let shrPatientResourceId = bundle.entry[0]!.resource.id;
+          if (shrPatientResourceId.startsWith("Patient/")) {
+            shrPatientResourceId = shrPatientResourceId.replace("Patient/", "");
+          }
           logger.debug(
             { 
               patientId, 
@@ -136,40 +186,36 @@ export class PatientVerificationService {
         return null;
       }
 
-      const opencrPatient = opencrPatientResult.body as FhirPatient;
+      const opencrPatientFull = opencrPatientResult.body as FhirPatient;
       
-      // Prepare Patient for SHR
-      // Remove OpenCR-specific fields and cross-references that won't exist in SHR
-      // SHR is a separate database, so OpenCR resource IDs (Organizations, linked Patients, etc.) don't exist there
+      // Prepare shallow Patient for SHR
+      // SHR only needs: identifier + gender + birthDate (DOB) for linking Observations
+      // Full demographics (name, address) stay in OpenCR (master patient index)
       const shrPatient: FhirPatient = {
         resourceType: "Patient",
-        // Keep identifiers (these are universal, not resource-specific)
-        identifier: opencrPatient.identifier,
-        // Keep name (no cross-references)
-        name: opencrPatient.name,
-        // Keep gender (no cross-references)
-        gender: opencrPatient.gender,
-        // Keep birthDate (no cross-references)
-        birthDate: opencrPatient.birthDate,
-        // Remove id - let SHR assign a new one
-        // Remove managingOrganization - Organization reference from OpenCR won't exist in SHR
-        // Remove link - cross-references to other OpenCR Patients won't exist in SHR
-        // Remove meta - OpenCR-specific metadata (versionId, lastUpdated, tags)
-        // Keep only core patient data that doesn't reference other OpenCR resources
+        // Keep identifiers (needed for linking and lookup)
+        identifier: opencrPatientFull.identifier,
+        // Keep gender
+        gender: opencrPatientFull.gender,
+        // Keep birthDate (DOB)
+        birthDate: opencrPatientFull.birthDate,
+        // NO other demographics: name, address stay in OpenCR only
       };
 
       logger.debug(
         {
           patientId,
           opencrPatientId,
-          removedFields: {
-            id: !!opencrPatient.id,
-            managingOrganization: !!opencrPatient.managingOrganization,
-            link: !!opencrPatient.link,
-            meta: !!opencrPatient.meta
+          identifierCount: shrPatient.identifier?.length || 0,
+          gender: shrPatient.gender,
+          birthDate: shrPatient.birthDate,
+          excludedFields: {
+            name: !!opencrPatientFull.name,
+            address: !!opencrPatientFull.address,
+            managingOrganization: !!opencrPatientFull.managingOrganization
           }
         },
-        "Cleaned Patient resource for SHR (removed OpenCR cross-references)"
+        "Prepared shallow Patient for SHR (identifier + gender + DOB)"
       );
 
       // POST Patient to SHR
@@ -182,7 +228,12 @@ export class PatientVerificationService {
         // Try to get ID from response body (FHIR Patient resource)
         if (createResult.body && typeof createResult.body === "object") {
           const responseBody = createResult.body as { id?: string; resource?: { id?: string } };
-          shrPatientResourceId = responseBody.id || responseBody.resource?.id || null;
+          let rawId = responseBody.id || responseBody.resource?.id || null;
+          // Normalize: strip "Patient/" prefix if present (OpenCR returns "Patient/uuid" format)
+          if (rawId && rawId.startsWith("Patient/")) {
+            rawId = rawId.replace("Patient/", "");
+          }
+          shrPatientResourceId = rawId;
         }
 
         // If not in body, search again to get the newly created Patient ID
@@ -192,14 +243,18 @@ export class PatientVerificationService {
           await new Promise((resolve) => setTimeout(resolve, 500));
           
           // Search again to get the newly created Patient ID
-          // Re-construct the query with URL encoding
-          const encodedPatientId = encodeURIComponent(patientId);
-          const searchQuery = `${this.shrChannelPath}/Patient?identifier=urn:impilo:uid%7C${encodedPatientId}`;
+          // Use the same identifier we used for initial lookup
+          const searchQuery = `${this.shrChannelPath}/Patient?identifier=${encodedIdentifier}`;
           const searchResult = await this.shrClient.get(searchQuery);
           if (searchResult.status === 200) {
             const bundle = searchResult.body as { entry?: Array<{ resource: { id: string } }> };
             if (bundle.entry && bundle.entry.length > 0) {
-              shrPatientResourceId = bundle.entry[0]!.resource.id;
+              let foundId = bundle.entry[0]!.resource.id;
+              // Normalize: strip "Patient/" prefix if present
+              if (foundId.startsWith("Patient/")) {
+                foundId = foundId.replace("Patient/", "");
+              }
+              shrPatientResourceId = foundId;
             }
           }
         }

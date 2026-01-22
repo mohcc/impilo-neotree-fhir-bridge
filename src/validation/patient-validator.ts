@@ -36,16 +36,6 @@ export class PatientValidator {
           errors.push(`Identifier ${index + 1}: value is required`);
         }
       });
-
-      // Check for required Neotree identifier
-      const hasImpiloUid = patient.identifier.some(
-        (id) => id.system === "urn:impilo:uid"
-      );
-      if (!hasImpiloUid) {
-        warnings.push(
-          "Missing urn:impilo:uid identifier (required by OpenCR for internalid)"
-        );
-      }
     }
 
     // Validate name (at least one name recommended)

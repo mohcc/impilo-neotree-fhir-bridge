@@ -299,10 +299,18 @@ export async function startNeonatalQuestionPipeline(pool: Pool, config: AppConfi
       }
       
       // Update watermark only after successful processing
+      // Use date (LocalDateTime) instead of ID for accurate chronological tracking
+      // The date is already converted to UTC format "YYYY-MM-DD HH:MM:SS" by the query
       const lastRow = rows[rows.length - 1];
-      if (lastRow) {
+      if (lastRow && lastRow.date) {
+        const lastUpdated = String(lastRow.date);
+        await setWatermark(pool, config.ops.watermarkTable, watermarkKey, lastUpdated);
+        logger.debug({ watermark: lastUpdated, table: watermarkKey }, "Updated watermark with date");
+      } else if (lastRow) {
+        // Fallback to ID if date is not available (shouldn't happen if date column exists)
+        logger.warn({ observationId: lastRow.id }, "date column not available, falling back to ID for watermark");
         await setWatermark(pool, config.ops.watermarkTable, watermarkKey, lastRow.id);
-        logger.debug({ watermark: lastRow.id, table: watermarkKey }, "Updated watermark");
+        logger.debug({ watermark: lastRow.id, table: watermarkKey }, "Updated watermark (using ID fallback)");
       }
     } catch (err) {
       logger.error({ err }, "Error in pollAndProcess for observations");

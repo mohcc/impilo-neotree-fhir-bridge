@@ -1,0 +1,76 @@
+{
+  "reason": {
+    "message": "Validation failed: Invalid NEOTREE-IMPILO-ID format: 09-0A-17-2026-N-0000001. Expected format: PP-DD-SS-YYYY-P-XXXXX (e.g., 00-0A-34-2025-N-01031)",
+    "stack": "Error: Validation failed: Invalid NEOTREE-IMPILO-ID format: 09-0A-17-2026-N-0000001. Expected format: PP-DD-SS-YYYY-P-XXXXX (e.g., 00-0A-34-2025-N-01031)\n    at pollAndProcess (file:///Users/tawandawashaya/Documents/neotree-opencr/dist/push/pipeline.js:131:176)\n    at processTicksAndRejections (node:internal/process/task_queues:96:5)"
+  },
+  "payload": {
+    "path": "/CR/fhir",
+    "entries": [
+      {
+        "request": {
+          "method": "POST",
+          "url": "Patient"
+        },
+        "resource": {
+          "resourceType": "Patient",
+          "meta": {
+            "tag": [
+              {
+                "system": "http://openclientregistry.org/fhir/clientid",
+                "code": "ZW000A42"
+              }
+            ]
+          },
+          "identifier": [
+            {
+              "system": "urn:impilo:phid",
+              "value": "470A4168"
+            },
+            {
+              "system": "urn:neotree:impilo-id",
+              "value": "09-0A-17-2026-N-0000001"
+            },
+            {
+              "system": "urn:impilo:uid",
+              "value": "97d54fa4-80b9-4320-9633-b9abe3738dc8"
+            },
+            {
+              "system": "urn:impilo:patient-id",
+              "value": "97d54fa4-80b9-4320-9633-b9abe3738dc8"
+            },
+            {
+              "system": "urn:impilo:person-id",
+              "value": "bb30c7a7-a31c-4d92-a641-f0e8d11de896"
+            }
+          ],
+          "name": [
+            {
+              "use": "official",
+              "family": "Phid",
+              "given": [
+                "Tawanda"
+              ]
+            }
+          ],
+          "gender": "male",
+          "birthDate": "2025-12-31",
+          "address": [
+            {
+              "use": "home",
+              "type": "both",
+              "line": [
+                "18723ihiwkdhj"
+              ],
+              "city": "Mainway",
+              "country": "ZW"
+            }
+          ],
+          "managingOrganization": {
+            "reference": "Organization/ZW000A42"
+          }
+        }
+      }
+    ],
+    "table": "consultation.neonatal_care"
+  }
+}

@@ -40,6 +40,17 @@ export class OpenCRSearchClient {
   }
 
   /**
+   * Check if identifier is a PHID (Primary Health ID) format
+   * Format: 8 alphanumeric characters (e.g., 203A2814)
+   */
+  private isPhid(identifier: string): boolean {
+    // PHID format: 8 alphanumeric characters (uppercase letters and digits)
+    // Example: 203A2814
+    const phidRegex = /^[0-9A-Z]{8}$/i;
+    return phidRegex.test(identifier.trim());
+  }
+
+  /**
    * Check if identifier is a NEOTREE-IMPILO-ID format
    * Format: PP-DD-SS-YYYY-P-XXXXX (e.g., 01-0A-34-2025-N-76315)
    */
@@ -51,34 +62,81 @@ export class OpenCRSearchClient {
   }
 
   /**
-   * Search by NEOTREE-IMPILO-ID or Patient ID
+   * Search by PHID, NEOTREE-IMPILO-ID, Patient ID, or Person ID
    * Automatically detects identifier format and uses appropriate system
+   * Tries multiple identifier systems if the first search fails
+   * 
+   * Priority order:
+   * 1. PHID (Primary Health ID) - urn:impilo:phid
+   * 2. NEOTREE-IMPILO-ID - urn:neotree:impilo-id, then urn:impilo:uid
+   * 3. UUID - urn:impilo:patient-id, then urn:impilo:person-id
    */
   async searchByIdentifier(identifier: string): Promise<SimplifiedPatient[]> {
     const trimmed = identifier.trim();
     
     // Detect identifier format and use appropriate system
+    
+    // 1. Check if it's a PHID (8 alphanumeric characters like 203A2814)
+    if (this.isPhid(trimmed)) {
+      console.log(`[OpenCR Search] Detected PHID format: ${trimmed}`);
+      const phidQuery = this.buildSearchUrl({
+        identifier: `urn:impilo:phid|${trimmed.toUpperCase()}`
+      });
+      return this.executeSearch(phidQuery);
+    }
+    
+    // 2. Check if it's a NEOTREE-IMPILO-ID format
     if (this.isNeotreeImpiloId(trimmed)) {
       // It's a NEOTREE-IMPILO-ID format (e.g., 01-0A-34-2025-N-76315)
+      // First try urn:neotree:impilo-id (new system)
       const neotreeQuery = this.buildSearchUrl({
         identifier: `urn:neotree:impilo-id|${trimmed}`
       });
       const neotreeResult = await this.executeSearch(neotreeQuery);
       if (neotreeResult.length > 0) return neotreeResult;
       
-      // Fall back to patient ID search in case it's stored differently
-      const patientIdQuery = this.buildSearchUrl({
+      // Fall back to urn:impilo:uid (legacy/OpenCR internalid system)
+      // Some patients may be stored with NEOTREE-IMPILO-ID under urn:impilo:uid
+      const uidQuery = this.buildSearchUrl({
         identifier: `urn:impilo:uid|${trimmed}`
       });
-      return this.executeSearch(patientIdQuery);
-    } else {
-      // It's a UUID or other format (e.g., 8ded5425-2b7e-47fc-974d-6a860dade244)
-      // Only search with urn:impilo:uid
-      const patientIdQuery = this.buildSearchUrl({
-        identifier: `urn:impilo:uid|${trimmed}`
-      });
-      return this.executeSearch(patientIdQuery);
+      return this.executeSearch(uidQuery);
     }
+    
+    // 3. Full identifier format (e.g., urn:impilo:patient-id|xxx)
+    if (trimmed.includes('|')) {
+      const query = this.buildSearchUrl({
+        identifier: trimmed
+      });
+      return this.executeSearch(query);
+    }
+    
+    // 4. It's a UUID or other format (e.g., 8ded5425-2b7e-47fc-974d-6a860dade244)
+    // Try multiple identifier systems in order of priority
+    
+    // 4a. Try phid first (in case it's a phid that doesn't match strict 8-char pattern)
+    const phidQuery = this.buildSearchUrl({
+      identifier: `urn:impilo:phid|${trimmed}`
+    });
+    const phidResult = await this.executeSearch(phidQuery);
+    if (phidResult.length > 0) return phidResult;
+    
+    // 4b. Try patient-id
+    const patientIdQuery = this.buildSearchUrl({
+      identifier: `urn:impilo:patient-id|${trimmed}`
+    });
+    const patientIdResult = await this.executeSearch(patientIdQuery);
+    if (patientIdResult.length > 0) return patientIdResult;
+    
+    // 4c. Try person-id if patient-id didn't work
+    const personIdQuery = this.buildSearchUrl({
+      identifier: `urn:impilo:person-id|${trimmed}`
+    });
+    const personIdResult = await this.executeSearch(personIdQuery);
+    if (personIdResult.length > 0) return personIdResult;
+    
+    // 4d. Return empty if none worked
+    return [];
   }
 
   /**
@@ -187,12 +245,20 @@ export class OpenCRSearchClient {
    */
   private transformToSimplified(fhirPatient: FhirPatient): SimplifiedPatient {
     // Extract identifiers
+    const phid = fhirPatient.identifier?.find(
+      id => id.system === "urn:impilo:phid"
+    )?.value;
+
     const neotreeId = fhirPatient.identifier?.find(
       id => id.system === "urn:neotree:impilo-id"
     )?.value;
     
     const patientId = fhirPatient.identifier?.find(
-      id => id.system === "urn:impilo:uid"
+      id => id.system === "urn:impilo:patient-id"
+    )?.value;
+
+    const personId = fhirPatient.identifier?.find(
+      id => id.system === "urn:impilo:person-id"
     )?.value;
 
     // Extract name
@@ -213,8 +279,10 @@ export class OpenCRSearchClient {
     return {
       id: fhirPatient.id || "",
       identifiers: {
+        phid,
         neotreeId,
         patientId,
+        personId,
       },
       name: {
         given: givenName,
