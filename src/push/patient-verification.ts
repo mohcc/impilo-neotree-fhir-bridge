@@ -224,8 +224,7 @@ export class PatientVerificationService {
         gender: opencrPatientFull.gender,
         // Keep birthDate (DOB)
         birthDate: opencrPatientFull.birthDate,
-        // Keep managingOrganization (facility reference)
-        managingOrganization: opencrPatientFull.managingOrganization,
+        // NO managingOrganization - Organization resource doesn't exist in SHR
         // NO other demographics or identifiers
       };
 
@@ -237,9 +236,8 @@ export class PatientVerificationService {
           identifiers: shrIdentifiers.map(i => `${i.system}|${i.value}`),
           gender: shrPatient.gender,
           birthDate: shrPatient.birthDate,
-          managingOrganization: shrPatient.managingOrganization?.reference,
         },
-        "Prepared shallow Patient for SHR (person-id + golden-id + gender + DOB + organization)"
+        "Prepared shallow Patient for SHR (person-id + golden-id + gender + DOB)"
       );
 
       // POST Patient to SHR
