@@ -130,13 +130,22 @@ export async function startNeonatalQuestionPipeline(pool: Pool, config: AppConfi
   
   /**
    * Process queued observations for a patient
+   * @param patientId - Database patient ID (used to fetch from queue)
+   * @param knownPatientResourceId - Optional: If already verified, pass the SHR Patient ID to skip re-verification
    */
-  const processQueuedObservations = async (patientId: string): Promise<void> => {
+  const processQueuedObservations = async (patientId: string, knownPatientResourceId?: string): Promise<void> => {
     const queued = await queue.getQueuedObservations(patientId);
     if (queued.length === 0) return;
     
-    // Get Patient resource ID from OpenCR
-    const patientResourceId = await patientVerifier.verifyPatientExists(patientId);
+    // Use known Patient resource ID or verify from OpenCR using best identifier
+    let patientResourceId = knownPatientResourceId;
+    if (!patientResourceId) {
+      // Get the best identifier from queued observations
+      const firstObs = queued[0];
+      const searchIdentifier = firstObs?.impilo_neotree_id || firstObs?.person_id || patientId;
+      patientResourceId = await patientVerifier.verifyPatientExists(searchIdentifier);
+    }
+    
     if (!patientResourceId) {
       logger.warn({ patientId }, "Patient still not found, skipping queued observations");
       return;
@@ -322,26 +331,27 @@ export async function startNeonatalQuestionPipeline(pool: Pool, config: AppConfi
         }
       }
       
-      // Only update watermark if ALL observations succeeded (none failed, none queued)
-      // If any failed or queued, don't update watermark - will re-process on next poll
+      // Update watermark if no failures (queued observations are tracked separately in queue table)
+      // Queued observations will be processed when patient appears in OpenCR via queue system
+      // Only block on actual failures (errors during push)
       const lastRow = rows[rows.length - 1];
-      if (totalFailed === 0 && totalQueued === 0 && lastRow) {
+      if (totalFailed === 0 && lastRow) {
         if (lastRow.date) {
           const lastUpdated = String(lastRow.date);
           await setWatermark(pool, config.ops.watermarkTable, watermarkKey, lastUpdated);
           logger.info(
-            { watermark: lastUpdated, totalSuccess, table: watermarkKey },
-            "All observations pushed successfully, watermark updated"
+            { watermark: lastUpdated, totalSuccess, totalQueued, table: watermarkKey },
+            "Observations processed, watermark updated (queued observations tracked separately)"
           );
         } else {
           // Fallback to ID if date is not available
           logger.warn({ observationId: lastRow.id }, "date column not available, falling back to ID for watermark");
           await setWatermark(pool, config.ops.watermarkTable, watermarkKey, lastRow.id);
         }
-      } else if (totalFailed > 0 || totalQueued > 0) {
+      } else if (totalFailed > 0) {
         logger.warn(
           { totalSuccess, totalFailed, totalQueued, total: rows.length },
-          "Some observations failed or queued - watermark NOT updated, will retry on next poll"
+          "Some observations failed to push - watermark NOT updated, will retry on next poll"
         );
       }
     } catch (err) {
@@ -350,9 +360,63 @@ export async function startNeonatalQuestionPipeline(pool: Pool, config: AppConfi
     }
   };
   
+  /**
+   * Sweep through queued observations and process any where patient now exists
+   * This handles cases where patient was created after observations were queued
+   */
+  const sweepQueue = async (): Promise<void> => {
+    try {
+      // Get pending patients with their identifiers from neonatal_care join
+      const pendingPatients = await queue.getPendingPatientsWithIdentifiers();
+      if (pendingPatients.length === 0) {
+        logger.debug("Queue sweep: no pending observations");
+        return;
+      }
+      
+      logger.info({ count: pendingPatients.length }, "Queue sweep: checking pending patients");
+      
+      for (const patient of pendingPatients) {
+        try {
+          // Use the best identifier: impilo_neotree_id > person_id > patient_id
+          const searchIdentifier = patient.impilo_neotree_id || patient.person_id || patient.patient_id;
+          
+          logger.debug(
+            { patientId: patient.patient_id, searchIdentifier, impilo_neotree_id: patient.impilo_neotree_id },
+            "Queue sweep: checking patient"
+          );
+          
+          // Check if patient now exists in OpenCR
+          const patientResourceId = await patientVerifier.verifyPatientExists(searchIdentifier);
+          
+          if (patientResourceId) {
+            const queued = await queue.getQueuedObservations(patient.patient_id);
+            logger.info(
+              { patientId: patient.patient_id, searchIdentifier, patientResourceId, queuedCount: queued.length },
+              "Queue sweep: patient now exists, processing queued observations"
+            );
+            await processQueuedObservations(patient.patient_id, patientResourceId);
+          } else {
+            logger.debug(
+              { patientId: patient.patient_id, searchIdentifier },
+              "Queue sweep: patient still not in OpenCR"
+            );
+          }
+        } catch (err) {
+          logger.error({ err, patientId: patient.patient_id }, "Queue sweep: error processing patient");
+        }
+      }
+    } catch (err) {
+      logger.error({ err }, "Error in queue sweep");
+    }
+  };
+  
   // Start polling
   const pollTimer = setInterval(() => { void pollAndProcess(); }, config.ops.pollIntervalMs);
   void pollAndProcess(); // Initial poll
+  
+  // Start queue sweep (runs every 30 seconds to process queued observations)
+  const sweepTimer = setInterval(() => { void sweepQueue(); }, 30000);
+  void sweepQueue(); // Initial sweep
   
   logger.info({ watermarkKey, shrPath }, "Neonatal question pipeline started");
 }

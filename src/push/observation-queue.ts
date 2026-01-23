@@ -83,23 +83,35 @@ export class ObservationQueue {
       ORDER BY \`created_at\`
     `;
     
-    const [rows] = await this.pool.query<RowDataPacket[] & Array<{ observation_data: string }>>(sql, [patientId]);
+    // MySQL returns JSON columns as objects (not strings)
+    const [rows] = await this.pool.query<RowDataPacket[] & Array<{ observation_data: string | object }>>(sql, [patientId]);
     
     const validObservations: NeonatalQuestionRow[] = [];
     for (const row of rows) {
       try {
-        const parsed = JSON.parse(row.observation_data) as NeonatalQuestionRow;
+        // MySQL may return JSON as object or string depending on driver version
+        const parsed = typeof row.observation_data === 'string' 
+          ? JSON.parse(row.observation_data) as NeonatalQuestionRow
+          : row.observation_data as NeonatalQuestionRow;
         validObservations.push(parsed);
       } catch (err) {
+        const dataPreview = typeof row.observation_data === 'string' 
+          ? row.observation_data.substring(0, 100)
+          : JSON.stringify(row.observation_data).substring(0, 100);
         logger.error(
-          { err, patientId, observationData: row.observation_data?.substring(0, 100) },
+          { err, patientId, observationData: dataPreview },
           "Failed to parse queued observation data, skipping"
         );
         // Mark as failed so it doesn't keep retrying
-        const observationId = row.observation_data ? 
-          (JSON.parse(row.observation_data) as NeonatalQuestionRow)?.id : null;
-        if (observationId) {
-          await this.markFailed(observationId);
+        try {
+          const obsData = typeof row.observation_data === 'string'
+            ? JSON.parse(row.observation_data)
+            : row.observation_data;
+          if (obsData?.id) {
+            await this.markFailed(obsData.id);
+          }
+        } catch {
+          // Ignore parse errors here
         }
       }
     }
@@ -167,6 +179,46 @@ export class ObservationQueue {
     });
     
     return stats;
+  }
+
+  /**
+   * Get all patient IDs with pending observations in queue
+   */
+  async getPendingPatientIds(): Promise<string[]> {
+    const sql = `
+      SELECT DISTINCT \`patient_id\`
+      FROM \`${this.queueTable}\`
+      WHERE \`status\` = 'pending'
+    `;
+    const [rows] = await this.pool.query<RowDataPacket[] & Array<{ patient_id: string }>>(sql);
+    return rows.map(row => row.patient_id);
+  }
+
+  /**
+   * Get pending patients with their best identifiers (from neonatal_care join)
+   * Returns array of { patient_id, impilo_neotree_id, person_id }
+   */
+  async getPendingPatientsWithIdentifiers(): Promise<Array<{
+    patient_id: string;
+    impilo_neotree_id: string | null;
+    person_id: string | null;
+  }>> {
+    // Join queue with neonatal_care to get impilo_neotree_id and person_id
+    const sql = `
+      SELECT DISTINCT 
+        q.patient_id,
+        nc.impilo_neotree_id,
+        nc.person_id
+      FROM \`${this.queueTable}\` q
+      INNER JOIN \`consultation\`.\`neonatal_care\` nc ON nc.patient_id = q.patient_id
+      WHERE q.status = 'pending'
+    `;
+    const [rows] = await this.pool.query<RowDataPacket[] & Array<{
+      patient_id: string;
+      impilo_neotree_id: string | null;
+      person_id: string | null;
+    }>>(sql);
+    return rows;
   }
 }
 
