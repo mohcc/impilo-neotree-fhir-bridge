@@ -143,7 +143,7 @@ export async function startNeonatalQuestionPipeline(pool: Pool, config: AppConfi
       // Get the best identifier from queued observations
       const firstObs = queued[0];
       const searchIdentifier = firstObs?.impilo_neotree_id || firstObs?.person_id || patientId;
-      patientResourceId = await patientVerifier.verifyPatientExists(searchIdentifier);
+      patientResourceId = await patientVerifier.verifyPatientExists(searchIdentifier) || undefined;
     }
     
     if (!patientResourceId) {

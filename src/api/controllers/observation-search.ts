@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { ShrSearchClient } from "../../opencr/shr-search-client.js";
 import type { AppConfig } from "../../config/index.js";
+import { normalizeObservation, toApiResponse } from "../utils/observation-normalizer.js";
 
 export class ObservationSearchController {
   private readonly searchClient: ShrSearchClient;
@@ -106,65 +107,16 @@ export class ObservationSearchController {
   }
 
   /**
-   * Transform FHIR Observation to simplified format for API response
+   * Transform FHIR Observation to unified format for API response
+   * 
+   * This method normalizes observations from both sources (bridge and mobile)
+   * into a consistent format. Mobile observations (LOINC codes, valueQuantity)
+   * are transformed to match the bridge format (Neotree codes, primitive values).
    */
   private transformObservation(obs: any): Record<string, unknown> {
-    const transformed: Record<string, unknown> = {
-      id: obs.id,
-      status: obs.status,
-      effectiveDateTime: obs.effectiveDateTime,
-      issued: obs.issued,
-    };
-
-    // Extract code
-    if (obs.code?.coding?.[0]) {
-      transformed.code = obs.code.coding[0].code;
-      transformed.display = obs.code.coding[0].display;
-    }
-
-    // Extract category
-    if (obs.category?.[0]?.coding) {
-      const categories = obs.category[0].coding.map((cat: any) => ({
-        system: cat.system,
-        code: cat.code,
-        display: cat.display
-      }));
-      transformed.category = categories;
-    }
-
-    // Extract value
-    if (obs.valueInteger !== undefined) {
-      transformed.value = obs.valueInteger;
-      transformed.valueType = "integer";
-    } else if (obs.valueString !== undefined) {
-      transformed.value = obs.valueString;
-      transformed.valueType = "string";
-    } else if (obs.valueBoolean !== undefined) {
-      transformed.value = obs.valueBoolean;
-      transformed.valueType = "boolean";
-    } else if (obs.valueDateTime) {
-      transformed.value = obs.valueDateTime;
-      transformed.valueType = "dateTime";
-    } else if (obs.valueDate) {
-      transformed.value = obs.valueDate;
-      transformed.valueType = "date";
-    } else if (obs.component && obs.component.length > 0) {
-      transformed.value = "component";
-      transformed.valueType = "component";
-      transformed.components = obs.component;
-    }
-
-    // Extract subject reference
-    if (obs.subject?.reference) {
-      transformed.subject = obs.subject.reference;
-    }
-
-    // Include extensions if present
-    if (obs.extension && obs.extension.length > 0) {
-      transformed.extensions = obs.extension;
-    }
-
-    return transformed;
+    // Use the normalizer to handle both bridge and mobile formats
+    const normalized = normalizeObservation(obs);
+    return toApiResponse(normalized);
   }
 }
 
