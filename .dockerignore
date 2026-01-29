@@ -25,7 +25,7 @@ dlq/
 .eslintrc*
 .prettierrc*
 .editorconfig
-tsconfig.json
+# Note: tsconfig.json is needed for build
 
 # IDE
 .idea/
