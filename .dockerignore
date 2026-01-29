@@ -1,0 +1,59 @@
+# Git
+.git
+.gitignore
+
+# Dependencies (will be installed fresh)
+node_modules
+
+# Build output (will be built fresh)
+dist
+
+# Environment files (use runtime env)
+.env
+.env.*
+!.env.example
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Dead Letter Queue (runtime data)
+dlq/
+
+# Development files
+.eslintrc*
+.prettierrc*
+.editorconfig
+tsconfig.json
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test files
+*.test.ts
+*.spec.ts
+__tests__/
+coverage/
+
+# Scripts (not needed in container)
+scripts/
+
+# Config folder (OpenCR config, not needed)
+config/
+
+# Logs
+logs/
+*.log
+
+# Docker files (not needed inside image)
+Dockerfile
+docker-compose*.yml
+.dockerignore
